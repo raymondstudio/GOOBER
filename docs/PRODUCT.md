@@ -1,0 +1,5 @@
+# Product and M1
+GOOBER is a Nigerian digital store with NGN purchasing credit. M1 proves register/sign-in, approved fictional catalog, verified signed fixture funding, one-item server quote and asynchronous fulfillment, owner-only encrypted reveal, support and operations on the same persistent records.
+Modes are visible. Fixture items convey no real entitlement. P-AI sandbox and Graml read-only verification remain separate evidence when credentials exist. Live purchases, seller payouts, withdrawals, carts, account-buyback, phone verification and Telegram sales are outside M1.
+Roles: CUSTOMER owns wallet/orders/support; ADMIN can review fixture outcomes and publish explicitly approved offers with audit evidence. Owner assurance is D001; each product approval remains explicit.
+Local defaults quantity1 and quote acceptance2minutes are configurable test values. Retail NGN amounts remain fixed after acceptance. Unknown supplier outcomes preserve reserved funds; customer-facing refunds identify GOOBER credit.

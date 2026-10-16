@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_USER: goober_migrator
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run pnpm setup:local}
+      POSTGRES_DB: goober
+    ports: ['127.0.0.1:54329:5432']
+    volumes: ['postgres_data:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL','pg_isready -U goober_migrator -d goober']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  redis:
+    image: redis:7.4-alpine
+    ports: ['127.0.0.1:6389:6379']
+    command: ['redis-server','--appendonly','yes']
+    volumes: ['redis_data:/data']
+    healthcheck:
+      test: ['CMD','redis-cli','ping']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,14 @@
+{
+  "name": "@goober/auth",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts"
+  },
+  "dependencies": {
+    "@goober/db": "workspace:*",
+    "better-auth": "1.7.10",
+    "@better-auth/prisma-adapter": "1.7.10"
+  }
+}

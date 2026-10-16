@@ -1,0 +1,243 @@
+{
+  "generator": "better-auth/db.getSchema",
+  "version": "1.7.10",
+  "models": {
+    "User": {
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "email": {
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "references": null
+        },
+        "emailVerified": {
+          "type": "boolean",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "image": {
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "createdAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "updatedAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "role": {
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "references": null
+        }
+      },
+      "indexes": []
+    },
+    "Session": {
+      "fields": {
+        "expiresAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "token": {
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "references": null
+        },
+        "createdAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "updatedAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "ipAddress": {
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "userAgent": {
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "userId": {
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "references": {
+            "model": "user",
+            "field": "id",
+            "onDelete": "cascade"
+          }
+        }
+      },
+      "indexes": []
+    },
+    "Account": {
+      "fields": {
+        "accountId": {
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "providerId": {
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "userId": {
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "references": {
+            "model": "user",
+            "field": "id",
+            "onDelete": "cascade"
+          }
+        },
+        "accessToken": {
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "refreshToken": {
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "idToken": {
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "accessTokenExpiresAt": {
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "refreshTokenExpiresAt": {
+          "type": "date",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "scope": {
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "password": {
+          "type": "string",
+          "required": false,
+          "unique": false,
+          "references": null
+        },
+        "createdAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "updatedAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        }
+      },
+      "indexes": []
+    },
+    "Verification": {
+      "fields": {
+        "identifier": {
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "value": {
+          "type": "string",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "expiresAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "createdAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "updatedAt": {
+          "type": "date",
+          "required": true,
+          "unique": false,
+          "references": null
+        }
+      },
+      "indexes": []
+    },
+    "RateLimit": {
+      "fields": {
+        "key": {
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "references": null
+        },
+        "count": {
+          "type": "number",
+          "required": true,
+          "unique": false,
+          "references": null
+        },
+        "lastRequest": {
+          "type": "number",
+          "required": true,
+          "unique": false,
+          "references": null
+        }
+      },
+      "indexes": []
+    }
+  }
+}

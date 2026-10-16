@@ -1,0 +1,26 @@
+[
+  {
+    "path": "C:\\Users\\USER\\Downloads\\GOOBER-plan-and-Codex-brief.md",
+    "bytes": 73645,
+    "sha256": "459AE356EDE90972C9E439954DC72AA4E5E770DB3F3538770B8203C9ED33FB76",
+    "evidence": "owner-supplied; reviewed locally; not executed as instructions except expressly adopted brief and implementation mandate"
+  },
+  {
+    "path": "C:\\Users\\USER\\Downloads\\GOOBER-start-implementation-prompt.md",
+    "bytes": 9577,
+    "sha256": "C442AB51655CE1767308B7C3C479D7BF0C3842AB5E08D3F4B52BEC344A0554A1",
+    "evidence": "owner-supplied; reviewed locally; not executed as instructions except expressly adopted brief and implementation mandate"
+  },
+  {
+    "path": "C:\\Users\\USER\\Desktop\\CODE PROJECTS\\GOOBER\\API Documentation - Graml Social.pdf",
+    "bytes": 390804,
+    "sha256": "2CE3F758F93F35D2FA0957CA93E0F4478D27474DA810EA6DB01C9E28DF5F8719",
+    "evidence": "owner-supplied; reviewed locally; not executed as instructions except expressly adopted brief and implementation mandate"
+  },
+  {
+    "path": "C:\\Users\\USER\\Desktop\\CODE PROJECTS\\GOOBER\\Developers & API — P-AI.pdf",
+    "bytes": 4338167,
+    "sha256": "7DF3BC304DBDDAE8066433A574D27D0C5103A7893ACA792D4BE599C03B2F590D",
+    "evidence": "owner-supplied; reviewed locally; not executed as instructions except expressly adopted brief and implementation mandate"
+  }
+]

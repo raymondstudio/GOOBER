@@ -1,0 +1,375 @@
+generator client {
+  provider = "prisma-client"
+  output = "../generated"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          String    @default("CUSTOMER")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([identifier])
+}
+
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+
+model Product {
+  id                 String   @id @default(uuid())
+  slug               String   @unique
+  name               String
+  description        String
+  category           String   @default("Subscriptions")
+  entitlement        String
+  terms              String
+  approved           Boolean  @default(false)
+  published          Boolean  @default(false)
+  approvalEvidence   String?
+  deliveryType       String
+  region             String
+  provider           String
+  providerProductId  String
+  providerAccount    String   @default("fixture")
+  environment        String   @default("test")
+  providerMode       String   @default("fixture")
+  retailMinor        BigInt
+  supplierMinor      BigInt
+  supplierCurrency   String
+  version            Int      @default(1)
+  fixtureScenario    String   @default("delivered")
+  stock              Int      @default(100)
+  observedAt         DateTime @default(now())
+  catalogCompleteness String  @default("fixture-complete")
+  inputType          String   @default("none")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  quotes             Quote[]
+  orders             Order[]
+}
+
+model Wallet {
+  id             String   @id @default(uuid())
+  ownerId        String
+  environment    String
+  currency       String   @default("NGN")
+  availableMinor BigInt   @default(0)
+  reservedMinor  BigInt   @default(0)
+  frozen         Boolean  @default(false)
+  freezeReason   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@unique([ownerId, environment, currency])
+}
+
+model LedgerAccount {
+  id              String   @id @default(uuid())
+  code            String
+  ownerId         String?
+  environment     String
+  currency        String
+  normalDirection String
+  purpose         String
+  createdAt       DateTime @default(now())
+  postings        Posting[]
+  @@unique([environment, code])
+  @@unique([id, currency])
+}
+
+model Journal {
+  id           String    @id @default(uuid())
+  environment  String
+  operationId  String
+  currency     String
+  reversalOfId String?
+  reversalOf   Journal?  @relation("JournalReversals", fields: [reversalOfId], references: [id])
+  reversals    Journal[] @relation("JournalReversals")
+  metadata     Json      @default("{}")
+  postedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  postings     Posting[]
+  @@unique([environment, operationId])
+  @@unique([id, currency])
+}
+
+model Posting {
+  id          String        @id @default(uuid())
+  journalId   String
+  accountId   String
+  currency    String
+  direction   String
+  amountMinor BigInt
+  journal     Journal       @relation(fields: [journalId, currency], references: [id, currency])
+  account     LedgerAccount @relation(fields: [accountId, currency], references: [id, currency])
+  createdAt   DateTime      @default(now())
+  @@index([accountId])
+}
+
+model Quote {
+  id               String   @id @default(uuid())
+  ownerId          String
+  environment      String
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id])
+  productVersion   Int
+  quantity         Int      @default(1)
+  retailMinor      BigInt
+  supplierMinor    BigInt
+  supplierCurrency String
+  fxRate           String?
+  fxSource         String?
+  fxObservedAt     DateTime?
+  pricingVersion   String
+  entitlement      String
+  terms            String
+  provider         String
+  providerMode     String
+  paymentMode      String
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  createdAt        DateTime @default(now())
+  order            Order?
+  @@index([ownerId, createdAt])
+}
+
+model Order {
+  id                 String   @id @default(uuid())
+  ownerId            String
+  environment        String
+  quoteId            String   @unique
+  quote              Quote    @relation(fields: [quoteId], references: [id])
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id])
+  fulfillment        String   @default("ACCEPTED")
+  moneyStatus        String   @default("RESERVED")
+  reservedMinor      BigInt
+  capturedMinor      BigInt   @default(0)
+  releasedMinor      BigInt   @default(0)
+  refundedMinor      BigInt   @default(0)
+  provider           String
+  providerAccount    String   @default("fixture")
+  providerMode       String
+  paymentMode        String
+  providerReference  String   @unique
+  version            Int      @default(1)
+  reviewReason       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  attempts           ProviderAttempt[]
+  delivery           Delivery?
+  support            SupportRequest[]
+  @@index([ownerId, createdAt])
+}
+
+model IdempotencyRecord {
+  id          String   @id @default(uuid())
+  ownerId     String
+  operation   String
+  environment String
+  key         String
+  requestHash String
+  resultId    String
+  createdAt   DateTime @default(now())
+  @@unique([ownerId, operation, environment, key])
+}
+
+model PaymentIntent {
+  id                 String   @id @default(uuid())
+  ownerId            String
+  environment        String
+  provider           String   @default("fixture")
+  providerAccount    String   @default("fixture")
+  paymentMode        String   @default("fixture")
+  reference          String   @unique
+  amountMinor        BigInt
+  currency           String   @default("NGN")
+  status             String   @default("PENDING")
+  creditedMinor      BigInt   @default(0)
+  reversedMinor      BigInt   @default(0)
+  receivableMinor    BigInt   @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  @@unique([provider, providerAccount, environment, reference])
+  @@index([ownerId, createdAt])
+}
+
+model ProviderAttempt {
+  id                String    @id @default(uuid())
+  orderId           String
+  order             Order     @relation(fields: [orderId], references: [id])
+  provider          String
+  providerAccount   String
+  environment       String
+  providerMode      String
+  externalReference String
+  requestDigest     String
+  requestPayload    Json      @default("{}")
+  status            String    @default("PREPARED")
+  dispatchCount     Int       @default(0)
+  dispatchedAt      DateTime?
+  acknowledgedAt    DateTime?
+  responseDigest    String?
+  lastError         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  @@unique([orderId, provider, providerAccount, environment])
+  @@unique([provider, providerAccount, environment, externalReference])
+}
+
+model Delivery {
+  id          String   @id @default(uuid())
+  orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id])
+  environment String
+  provider    String
+  keyId       String
+  ciphertext  String
+  nonce       String
+  tag         String
+  createdAt   DateTime @default(now())
+}
+
+model Inbox {
+  id              String    @id @default(uuid())
+  provider        String
+  providerAccount String    @default("fixture")
+  environment     String
+  eventId         String
+  eventType       String
+  payloadDigest   String
+  payload         Json      @default("{}")
+  encryptedPayload Json?
+  status          String    @default("PENDING")
+  attempts        Int       @default(0)
+  lastError       String?
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  @@unique([provider, providerAccount, environment, eventId])
+  @@index([status, createdAt])
+}
+
+model Outbox {
+  id          String    @id @default(uuid())
+  environment String
+  eventKey    String
+  eventType   String
+  aggregateId String
+  payload     Json      @default("{}")
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  leaseUntil  DateTime?
+  processedAt DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  @@unique([environment, eventKey])
+  @@index([status, createdAt])
+}
+
+model SupportRequest {
+  id          String   @id @default(uuid())
+  ownerId     String
+  environment String
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  subject     String   @default("Order support")
+  message     String
+  status      String   @default("OPEN")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([ownerId, createdAt])
+}
+
+model AuditEvent {
+  id          String   @id @default(uuid())
+  actorId     String?
+  environment String
+  action      String
+  aggregateId String?
+  operationId String?  @unique
+  reason      String?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  @@index([aggregateId, createdAt])
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  orderId     String
+  environment String
+  reason      String
+  evidence    String
+  status      String   @default("OPEN")
+  actorId     String?
+  operationId String   @unique
+  version     Int      @default(1)
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model SupplierBalanceObservation {
+  id              String   @id @default(uuid())
+  provider        String
+  providerAccount String
+  environment     String
+  currency        String
+  mode            String
+  amountMinor     BigInt
+  observedAt      DateTime @default(now())
+  source          String
+  evidence        String
+  @@index([provider, environment, observedAt])
+}

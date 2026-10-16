@@ -1,0 +1,12 @@
+{
+  "name": "@goober/worker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@goober/db": "workspace:*",
+    "@goober/commerce": "workspace:*",
+    "@goober/providers": "workspace:*",
+    "bullmq": "6.3.15",
+    "ioredis": "6.0.0"
+  }
+}

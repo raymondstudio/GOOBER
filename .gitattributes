@@ -1,0 +1,5 @@
+* text=auto eol=lf
+# Retain reviewed upstream instruction/reference contents verbatim.
+.agents/skills/playwright/** -whitespace
+.agents/skills/security-best-practices/** -whitespace
+.agents/skills/security-threat-model/** -whitespace

@@ -1,0 +1,2836 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "GOOBER isolated M1 API",
+    "version": "m1.v1",
+    "description": "Implemented local/test fixture contract. No live purchases or customer money. Monetary JSON values are decimal strings. Sessions are database-backed; caller identity/role headers confer no authority. Provider credentials and delivery keys are server-only."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000",
+      "description": "Same-origin local web/auth/API proxy"
+    }
+  ],
+  "paths": {
+    "/api/v1/products": {
+      "get": {
+        "operationId": "listApprovedFixtureProducts",
+        "summary": "listApprovedFixtureProducts",
+        "description": "Bounded100 approved/published test products whose provider mode is fixture.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Product"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        }
+      }
+    },
+    "/api/v1/products/{id}": {
+      "get": {
+        "operationId": "getApprovedFixtureProduct",
+        "summary": "getApprovedFixtureProduct",
+        "description": "",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "currentDatabaseSession",
+        "summary": "currentDatabaseSession",
+        "description": "",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        }
+      }
+    },
+    "/api/v1/wallet": {
+      "get": {
+        "operationId": "getOwnWallet",
+        "summary": "getOwnWallet",
+        "description": "",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wallet"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        }
+      }
+    },
+    "/api/v1/wallet/transactions": {
+      "get": {
+        "operationId": "listOwnTransactions",
+        "summary": "listOwnTransactions",
+        "description": "",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/quotes": {
+      "post": {
+        "operationId": "createSingleUseQuote",
+        "summary": "createSingleUseQuote",
+        "description": "Owner-bound immutable economics; expiry limits acceptance only.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Quote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured trusted origin."
+          },
+          {
+            "name": "x-goober-csrf",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders": {
+      "post": {
+        "operationId": "acceptQuoteAndReserve",
+        "summary": "acceptQuoteAndReserve",
+        "description": "One order per quote across different keys. Same key/body replays; mismatched body conflicts. Supplier work is asynchronous.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured trusted origin."
+          },
+          {
+            "name": "x-goober-csrf",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderInput"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listOwnOrders",
+        "summary": "listOwnOrders",
+        "description": "",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/orders/{id}": {
+      "get": {
+        "operationId": "getOwnOrder",
+        "summary": "getOwnOrder",
+        "description": "",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/delivery/reveal": {
+      "post": {
+        "operationId": "revealOwnDelivery",
+        "summary": "revealOwnDelivery",
+        "description": "Delivered owned order; session created within15minutes; bounded rate, audit and no-store. No plaintext in normal order responses.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Delivery"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured trusted origin."
+          },
+          {
+            "name": "x-goober-csrf",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Empty"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funding/intents": {
+      "post": {
+        "operationId": "createFixtureFundingIntent",
+        "summary": "createFixtureFundingIntent",
+        "description": "",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Funding"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured trusted origin."
+          },
+          {
+            "name": "x-goober-csrf",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FundingInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/funding/intents/{id}/simulate": {
+      "post": {
+        "operationId": "verifyOwnedFixturePayment",
+        "summary": "verifyOwnedFixturePayment",
+        "description": "Local/test fixture only. Produces server-signed event through normal durable intake; does not directly edit the balance.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": {
+                      "const": true
+                    },
+                    "intentId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  },
+                  "required": [
+                    "accepted",
+                    "intentId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured trusted origin."
+          },
+          {
+            "name": "x-goober-csrf",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Empty"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/requests": {
+      "get": {
+        "operationId": "listOwnSupport",
+        "summary": "listOwnSupport",
+        "description": "",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createOwnedSupport",
+        "summary": "createOwnedSupport",
+        "description": "Optional order must be owned. Text encrypted at rest; no media/credential uploads.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Support"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured trusted origin."
+          },
+          {
+            "name": "x-goober-csrf",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/overview": {
+      "get": {
+        "operationId": "operationsOverview",
+        "summary": "operationsOverview",
+        "description": "Bounded test records; no decrypted delivery payloads. Audits and supplier observations are separate records. Current database ADMIN role required.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/products/{id}/approval": {
+      "post": {
+        "operationId": "setFixturePublication",
+        "summary": "setFixturePublication",
+        "description": "Preserves existing approval/entitlement evidence; optimistic version and full-body operation hash. Current database ADMIN role required.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured trusted origin."
+          },
+          {
+            "name": "x-goober-csrf",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/orders/{id}/resolve": {
+      "post": {
+        "operationId": "resolveFixtureReview",
+        "summary": "resolveFixtureReview",
+        "description": "Audited conclusive fixture evidence or explicit merchant loss; never repeats an uncertain supplier purchase. Current database ADMIN role required.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact configured trusted origin."
+          },
+          {
+            "name": "x-goober-csrf",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "const": "1"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health/live": {
+      "get": {
+        "operationId": "liveness",
+        "summary": "liveness",
+        "description": "Process liveness only.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        }
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "operationId": "readiness",
+        "summary": "readiness",
+        "description": "Actual PostgreSQL SELECT1 and Redis PING; no supplier call.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/fixture": {
+      "post": {
+        "operationId": "durableFixtureIntake",
+        "summary": "durableFixtureIntake",
+        "description": "HMAC-SHA256 over original JSON bytes, unprefixed hex. Intent reference/amount/currency/environment bound. Unique inbox committed before202; replay cannot create another economic credit.",
+        "security": [],
+        "responses": {
+          "202": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "x-goober-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixtureEvent"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/pai": {
+      "post": {
+        "operationId": "durablePaiIntake",
+        "summary": "durablePaiIntake",
+        "description": "Provider-specific original raw-byte HMAC sha256=<hex>. Delivery/event headers must match body identity. Normalized sensitive contents encrypted; unmatched reference quarantined. See PROVIDERS.md for exact supplied contract.",
+        "security": [],
+        "responses": {
+          "202": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "x-webhook-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-delivery",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-event",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/paystack": {
+      "post": {
+        "operationId": "quarantinedPaystackExtension",
+        "summary": "quarantinedPaystackExtension",
+        "description": "Configured test-only SHA512 signature and matching sandbox intent required; extension remains quarantined and does not credit fixture customer funds. Not externally verified.",
+        "security": [],
+        "responses": {
+          "202": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BusinessError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/BusinessError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/BusinessError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/BusinessError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/BusinessError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/BusinessError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/BusinessError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/BusinessError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "x-paystack-signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/sign-up/email": {
+      "post": {
+        "operationId": "register",
+        "summary": "register",
+        "description": "Maintained Better Auth handler. Exact trusted origin, JSON body, library CSRF/session protections and active database-backed rate limits. Use @goober/auth/client; business x-goober-csrf header is not an auth-handler requirement.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/AuthError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/sign-in/email": {
+      "post": {
+        "operationId": "signIn",
+        "summary": "signIn",
+        "description": "Maintained Better Auth handler. Exact trusted origin, JSON body, library CSRF/session protections and active database-backed rate limits. Use @goober/auth/client; business x-goober-csrf header is not an auth-handler requirement.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/AuthError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SigninInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/sign-out": {
+      "post": {
+        "operationId": "signOut",
+        "summary": "signOut",
+        "description": "Maintained Better Auth handler. Exact trusted origin, JSON body, library CSRF/session protections and active database-backed rate limits. Use @goober/auth/client; business x-goober-csrf header is not an auth-handler requirement.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/AuthError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthError503"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Empty"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/get-session": {
+      "get": {
+        "operationId": "authGetSession",
+        "summary": "authGetSession",
+        "description": "Maintained Better Auth response; role and revocation are revalidated on business API requests.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success; authenticated and business responses use Cache-Control:no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthResult"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/AuthError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/AuthError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/AuthError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/AuthError404"
+          },
+          "409": {
+            "$ref": "#/components/responses/AuthError409"
+          },
+          "429": {
+            "$ref": "#/components/responses/AuthError429"
+          },
+          "500": {
+            "$ref": "#/components/responses/AuthError500"
+          },
+          "503": {
+            "$ref": "#/components/responses/AuthError503"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "goober.session_token",
+        "description": "Managed opaque Better Auth HttpOnly cookie; secure prefix/configuration follows HTTPS origin. Do not supply caller-generated session data."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "Accepted": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "const": true
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "additionalProperties": false
+      },
+      "Empty": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "priceMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "description": "Exact minor units; never a JSON number."
+          },
+          "currency": {
+            "const": "NGN"
+          },
+          "terms": {
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "PAI",
+              "GRAML"
+            ]
+          },
+          "mode": {
+            "enum": [
+              "fixture",
+              "sandbox",
+              "readonly",
+              "disabled"
+            ]
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "category",
+          "priceMinor",
+          "currency",
+          "terms",
+          "provider",
+          "mode",
+          "published",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "CUSTOMER",
+              "ADMIN"
+            ]
+          },
+          "environment": {
+            "const": "test"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "role",
+          "environment"
+        ],
+        "additionalProperties": false
+      },
+      "Wallet": {
+        "type": "object",
+        "properties": {
+          "availableMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "description": "Exact minor units; never a JSON number."
+          },
+          "reservedMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "description": "Exact minor units; never a JSON number."
+          },
+          "currency": {
+            "const": "NGN"
+          },
+          "frozen": {
+            "type": "boolean"
+          },
+          "environment": {
+            "const": "test"
+          }
+        },
+        "required": [
+          "availableMinor",
+          "reservedMinor",
+          "currency",
+          "frozen",
+          "environment"
+        ],
+        "additionalProperties": false
+      },
+      "Quote": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "productId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "priceMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "description": "Exact minor units; never a JSON number."
+          },
+          "currency": {
+            "const": "NGN"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "terms": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "priceMinor",
+          "currency",
+          "expiresAt",
+          "terms"
+        ],
+        "additionalProperties": false
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "productId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "productName": {
+            "type": "string"
+          },
+          "fulfillmentState": {
+            "type": "string"
+          },
+          "moneyState": {
+            "type": "string"
+          },
+          "totalMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "description": "Exact minor units; never a JSON number."
+          },
+          "currency": {
+            "const": "NGN"
+          },
+          "environment": {
+            "const": "test"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reviewReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "productName",
+          "fulfillmentState",
+          "moneyState",
+          "totalMinor",
+          "currency",
+          "environment",
+          "version",
+          "reviewReason",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "Transaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "description": "Exact minor units; never a JSON number."
+          },
+          "direction": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "operationId",
+          "amountMinor",
+          "direction",
+          "description",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "Funding": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "description": "Exact minor units; never a JSON number."
+          },
+          "currency": {
+            "const": "NGN"
+          },
+          "mode": {
+            "const": "fixture"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "amountMinor",
+          "currency",
+          "mode",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "Delivery": {
+        "type": "object",
+        "properties": {
+          "products": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revealedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "products",
+          "revealedAt"
+        ],
+        "additionalProperties": false
+      },
+      "Support": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "orderId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "orderId",
+          "message",
+          "status",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "QuoteInput": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "quantity": {
+            "const": 1,
+            "default": 1
+          }
+        },
+        "required": [
+          "productId"
+        ],
+        "additionalProperties": false
+      },
+      "OrderInput": {
+        "type": "object",
+        "properties": {
+          "quoteId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "quoteId"
+        ],
+        "additionalProperties": false
+      },
+      "FundingInput": {
+        "type": "object",
+        "properties": {
+          "amountMinor": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "description": "Canonical integer string between100 and100000000 inclusive (NGN1 to1000000). Validated server-side before BigInt conversion."
+          }
+        },
+        "required": [
+          "amountMinor"
+        ],
+        "additionalProperties": false
+      },
+      "SupportInput": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "message": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "ApprovalInput": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "operationId",
+          "version",
+          "published",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "ReviewInput": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "resolution": {
+            "enum": [
+              "delivered",
+              "failed",
+              "merchant-loss"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000
+          },
+          "delivery": {
+            "type": "array",
+            "maxItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        "required": [
+          "operationId",
+          "version",
+          "resolution",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "FixtureEvent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "eventId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "type": {
+                "const": "skeleton.probe"
+              },
+              "environment": {
+                "const": "test"
+              }
+            },
+            "required": [
+              "eventId",
+              "type",
+              "environment"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "eventId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "type": {
+                "enum": [
+                  "payment.succeeded",
+                  "payment.reversed"
+                ]
+              },
+              "environment": {
+                "const": "test"
+              },
+              "reference": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "amountMinor": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$"
+              },
+              "currency": {
+                "const": "NGN"
+              },
+              "provider": {
+                "const": "fixture"
+              },
+              "providerAccount": {
+                "const": "fixture"
+              }
+            },
+            "required": [
+              "eventId",
+              "type",
+              "environment",
+              "reference",
+              "amountMinor",
+              "currency"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "environment": {
+            "const": "test"
+          },
+          "database": {
+            "type": "string"
+          },
+          "queue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "environment"
+        ],
+        "additionalProperties": false
+      },
+      "SignupInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "password"
+        ],
+        "additionalProperties": true
+      },
+      "SigninInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "additionalProperties": true
+      },
+      "AuthResult": {
+        "type": "object",
+        "description": "Maintained Better Auth response; use its typed client. Session cookie is HttpOnly. Public registration cannot set the role.",
+        "additionalProperties": true
+      },
+      "OrderPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Order"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "TransactionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Transaction"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "SupportPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Support"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "Overview": {
+        "type": "object",
+        "properties": {
+          "orders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Order"
+            }
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Product"
+            }
+          },
+          "support": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Support"
+            }
+          },
+          "audits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "action": {
+                  "type": "string"
+                },
+                "aggregateId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "id",
+                "action",
+                "aggregateId",
+                "createdAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "providerBalances": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string"
+                },
+                "currency": {
+                  "enum": [
+                    "USD",
+                    "NGN"
+                  ]
+                },
+                "amountMinor": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,18})$",
+                  "description": "Exact minor units; never a JSON number."
+                },
+                "mode": {
+                  "type": "string"
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "source": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "provider",
+                "currency",
+                "amountMinor",
+                "mode",
+                "observedAt",
+                "source"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "orderId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "id",
+                "orderId",
+                "reason",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "orders",
+          "products",
+          "support",
+          "audits",
+          "providerBalances",
+          "reviews"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "responses": {
+      "BusinessError400": {
+        "description": "Invalid body, identity, cursor or host",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "BusinessError401": {
+        "description": "Missing/invalid session or signature",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "BusinessError403": {
+        "description": "Ownership role/CSRF/freshness or frozen spending restriction",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "BusinessError404": {
+        "description": "Absent or not-owned record",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "BusinessError409": {
+        "description": "Economic operation/quote conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "BusinessError429": {
+        "description": "Bounded rate limit; honor X-Retry-After/Retry-After",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "BusinessError500": {
+        "description": "Generic safe failure without internal detail",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "BusinessError503": {
+        "description": "Required local service or external verification unavailable",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "AuthError400": {
+        "description": "Maintained Better Auth error; use its typed client. Active rate limits may include X-Retry-After.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthResult"
+            }
+          }
+        }
+      },
+      "AuthError401": {
+        "description": "Maintained Better Auth error; use its typed client. Active rate limits may include X-Retry-After.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthResult"
+            }
+          }
+        }
+      },
+      "AuthError403": {
+        "description": "Maintained Better Auth error; use its typed client. Active rate limits may include X-Retry-After.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthResult"
+            }
+          }
+        }
+      },
+      "AuthError404": {
+        "description": "Maintained Better Auth error; use its typed client. Active rate limits may include X-Retry-After.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthResult"
+            }
+          }
+        }
+      },
+      "AuthError409": {
+        "description": "Maintained Better Auth error; use its typed client. Active rate limits may include X-Retry-After.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthResult"
+            }
+          }
+        }
+      },
+      "AuthError429": {
+        "description": "Maintained Better Auth error; use its typed client. Active rate limits may include X-Retry-After.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthResult"
+            }
+          }
+        }
+      },
+      "AuthError500": {
+        "description": "Maintained Better Auth error; use its typed client. Active rate limits may include X-Retry-After.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthResult"
+            }
+          }
+        }
+      },
+      "AuthError503": {
+        "description": "Maintained Better Auth error; use its typed client. Active rate limits may include X-Retry-After.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/AuthResult"
+            }
+          }
+        }
+      }
+    }
+  }
+}

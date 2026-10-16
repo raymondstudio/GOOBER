@@ -1,0 +1,50 @@
+name: verify
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  local-fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.11
+        env:
+          POSTGRES_USER: goober_migrator
+          POSTGRES_PASSWORD: isolated-ci-only
+          POSTGRES_DB: goober
+        ports: ['54329:5432']
+        options: >-
+          --health-cmd "pg_isready -U goober_migrator -d goober"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6389:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm setup:local
+      - name: Configure isolated CI database
+        run: node scripts/configure-ci.mjs
+      - run: pnpm db:generate && pnpm db:migrate && pnpm db:permissions && pnpm db:seed
+      - name: Install matching PostgreSQL backup client
+        shell: bash
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+          echo 'PG_BIN_DIR=/usr/lib/postgresql/17/bin' >> "$GITHUB_ENV"
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm verify

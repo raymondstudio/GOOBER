@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-16",
+  "branch": "codex/goober-m1",
+  "command": "node scripts/integration.mjs --e2e",
+  "exitCode": 0,
+  "run": "76e6151adede",
+  "database": "PostgreSQL17.11 (restricted runtime role)",
+  "queue": "Memurai4.3.2, Redis API7.2.4, real persistent loopback service",
+  "modes": {
+    "application": "test",
+    "data": "test",
+    "payment": "fixture",
+    "pai": "fixture",
+    "graml": "fixture",
+    "webBuild": "optimized production"
+  },
+  "tests": {
+    "controlledIntegration": 42,
+    "http": 6,
+    "browser": 6,
+    "unit": 71
+  },
+  "browser": {
+    "name": "Google Chrome",
+    "version": "155.0.8059.41",
+    "desktop": {
+      "width": 1440,
+      "height": 1000
+    },
+    "mobileEmulation": {
+      "width": 412,
+      "height": 839
+    }
+  },
+  "restoreReport": "restore-local.json",
+  "securityFindingsResolved": [
+    "SEC001",
+    "SEC002",
+    "SEC003",
+    "SEC004",
+    "SEC005"
+  ],
+  "dependencyAudits": {
+    "production": "no known vulnerabilities reported",
+    "all": "no known vulnerabilities reported"
+  },
+  "cleanCommittedCheckout": "pending",
+  "externalVerification": "unrun; authenticated P-AI sandbox, Graml read-only and payment test credentials unavailable",
+  "remoteCI": "unrun",
+  "release": "No deployment, live funds, supplier purchases/topups, push or merge"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@goober/commerce",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@goober/db": "workspace:*",
+    "@goober/contracts": "workspace:*"
+  }
+}

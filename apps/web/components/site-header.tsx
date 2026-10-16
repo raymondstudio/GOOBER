@@ -1,0 +1,7 @@
+'use client';
+import Link from 'next/link';
+import{useEffect,useState}from 'react';
+import{authClient}from '@goober/auth/client';
+import type{MeDto}from '@goober/contracts';
+import{api}from './api';
+export function SiteHeader(){const[me,setMe]=useState<MeDto|null>(null),[pending,setPending]=useState(false),[error,setError]=useState('');useEffect(()=>{void api<MeDto>('/me').then(setMe).catch(()=>setMe(null));},[]);async function signOut(){setPending(true);setError('');try{const result=await authClient.signOut();if(result.error)throw new Error('Sign out did not finish. Please try again.');window.location.assign('/');}catch(e){setError(e instanceof Error?e.message:'Sign out did not finish.');setPending(false);}}return <><header className="site-header"><Link className="wordmark" href="/" aria-label="GOOBER home"><span className="brand-symbol" aria-hidden="true">g.</span>GOOBER</Link><nav aria-label="Main navigation"><Link href="/">Store</Link>{me?<><Link href="/wallet">Balance</Link><Link href="/orders">Orders</Link><Link href="/support">Help</Link><Link href="/account">Account</Link>{me.role.toLowerCase()==='admin'&&<Link href="/operations">Operations</Link>}<button className="button small secondary" disabled={pending} onClick={()=>void signOut()}>{pending?'Signing out…':'Sign out'}</button></>:<Link className="button small" href="/sign-in">Your account <span aria-hidden="true">↗</span></Link>}</nav></header>{error&&<p className="notice error" role="alert">{error}</p>}</>;}

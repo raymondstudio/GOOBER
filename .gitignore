@@ -1,0 +1,16 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.local/
+.next/
+dist/
+coverage/
+output/
+test-results/
+playwright-report/
+*.tsbuildinfo
+skill-review-tree.json
+packages/db/generated/
+apps/web/.next-test/
+apps/web/next-env.d.ts
