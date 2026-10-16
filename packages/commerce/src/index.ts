@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { prisma, Prisma, type Order, type Product, type Wallet } from '@goober/db';
+import { prisma, Prisma, FIXTURE_PROVIDER_CONTRACT_VERSION, type Order, type Product, type Wallet } from '@goober/db';
 import type { FundingDto, OrderDto, QuoteDto, WalletDto } from '@goober/contracts';
 import { seal } from './encryption.js';
 import { parseMinor } from './money.js';
@@ -111,6 +111,7 @@ function assertProduct(product: Product) {
   if (!['quantity', 'none'].includes(product.inputType) || !['code', 'credential'].includes(product.deliveryType)) throw new CommerceError('UNSUPPORTED_PRODUCT', 'This delivery or input mode is not supported', 409);
   if (product.stock < 1) throw new CommerceError('OUT_OF_STOCK', 'This product is out of stock', 409);
   if (Date.now() - product.observedAt.getTime() > 24 * 60 * 60 * 1000 || product.observedAt.getTime() > Date.now() + 60_000) throw new CommerceError('STALE_OFFER', 'Product availability needs a fresh observation', 409);
+  if (product.apiContractVersion !== FIXTURE_PROVIDER_CONTRACT_VERSION) throw new CommerceError('UNSUPPORTED_PROVIDER_CONTRACT', 'The provider contract requires review', 409);
   if (product.retailMinor <= 0n || product.supplierMinor < 0n || (product.provider === 'PAI' ? product.supplierCurrency !== 'USD' : product.supplierCurrency !== 'NGN')) throw new CommerceError('INVALID_PRICE', 'Product pricing is unavailable', 409);
 }
 export async function createQuote(ownerId: string, productId: string, quantity = 1): Promise<QuoteDto> {
@@ -121,7 +122,7 @@ export async function createQuote(ownerId: string, productId: string, quantity =
   assertProduct(product);
   const quote = await prisma.quote.create({ data: {
     ownerId, environment, productId, productVersion: product.version, quantity, retailMinor: product.retailMinor,
-    supplierMinor: product.supplierMinor, supplierCurrency: product.supplierCurrency,
+    supplierMinor: product.supplierMinor, supplierCurrency: product.supplierCurrency, apiContractVersion: product.apiContractVersion,
     ...(product.supplierCurrency === 'USD' ? { fxRate: '1500', fxSource: 'synthetic-fixture-only', fxObservedAt: new Date() } : {}),
     pricingVersion: 'fixture-fixed-retail-v1', entitlement: product.entitlement, terms: product.terms,
     provider: product.provider, providerMode: product.providerMode, paymentMode: 'fixture', expiresAt: new Date(Date.now() + 120_000),
@@ -153,7 +154,7 @@ export async function createOrder(ownerId: string, quoteId: string, idempotencyK
     await tx.$queryRaw`SELECT id FROM "Product" WHERE id=${quote.productId} FOR UPDATE`;
     const product = await tx.product.findUniqueOrThrow({ where: { id: quote.productId } });
     assertProduct(product);
-    if (product.version !== quote.productVersion || product.retailMinor !== quote.retailMinor || product.supplierMinor !== quote.supplierMinor || product.supplierCurrency !== quote.supplierCurrency || product.provider !== quote.provider || product.providerMode !== quote.providerMode || product.terms !== quote.terms || product.entitlement !== quote.entitlement || quote.paymentMode !== 'fixture') throw new CommerceError('QUOTE_CHANGED', 'Product terms changed; accept a fresh quote', 409);
+    if (product.apiContractVersion !== quote.apiContractVersion || product.version !== quote.productVersion || product.retailMinor !== quote.retailMinor || product.supplierMinor !== quote.supplierMinor || product.supplierCurrency !== quote.supplierCurrency || product.provider !== quote.provider || product.providerMode !== quote.providerMode || product.terms !== quote.terms || product.entitlement !== quote.entitlement || quote.paymentMode !== 'fixture') throw new CommerceError('QUOTE_CHANGED', 'Product terms changed; accept a fresh quote', 409);
     if (wallet.frozen) throw new CommerceError('WALLET_FROZEN', 'Purchasing is paused while a funding issue is reviewed', 409);
     if (wallet.availableMinor < quote.retailMinor) throw new CommerceError('INSUFFICIENT_FUNDS', 'Add enough test purchasing credit before checkout', 409);
     const id = randomUUID();
@@ -226,17 +227,17 @@ async function openReview(tx: Transaction, order: Order, operationId: string, re
   return tx.order.update({ where: { id: order.id }, data: { ...(order.fulfillment === 'DELIVERED' || order.fulfillment === 'FAILED' ? {} : { fulfillment: 'NEEDS_REVIEW' }), reviewReason: reason, version: { increment: 1 } }, include: { product: true } });
 }
 
-async function supplierExpense(tx: Transaction, order: Order & { quote: { supplierMinor: bigint; supplierCurrency: string } }, value: bigint, currency: string) {
+async function supplierExpense(tx: Transaction, order: Order & { quote: { supplierMinor: bigint; supplierCurrency: string; apiContractVersion: string } }, value: bigint, currency: string) {
   if (value === 0n) return;
   const asset = await account(tx, null, `SUPPLIER_PREPAYMENT_${order.provider}_FIXTURE`, currency, 'DEBIT');
   const equity = await account(tx, null, `SYNTHETIC_TREASURY_${order.provider}`, currency);
   const openingId = `fixture-treasury:${order.provider}:${currency}`;
   if (!await tx.journal.findUnique({ where: { environment_operationId: { environment, operationId: openingId } } })) {
     const syntheticOpening = 1_000_000_000_000n;
-    await journal(tx, openingId, currency, [{ accountId: asset.id, direction: 'DEBIT', amountMinor: syntheticOpening }, { accountId: equity.id, direction: 'CREDIT', amountMinor: syntheticOpening }], { kind: 'synthetic-fixture-treasury-opening', provider: order.provider, noRealFunds: true });
+    await journal(tx, openingId, currency, [{ accountId: asset.id, direction: 'DEBIT', amountMinor: syntheticOpening }, { accountId: equity.id, direction: 'CREDIT', amountMinor: syntheticOpening }], { kind: 'synthetic-fixture-treasury-opening', provider: order.provider, apiContractVersion: order.quote.apiContractVersion, noRealFunds: true });
   }
   const expense = await account(tx, null, `SUPPLIER_COST_${order.provider}`, currency, 'DEBIT');
-  await journal(tx, `supplier-cost:${order.id}`, currency, [{ accountId: expense.id, direction: 'DEBIT', amountMinor: value }, { accountId: asset.id, direction: 'CREDIT', amountMinor: value }], { kind: 'supplier-cost', orderId: order.id, provider: order.provider, acceptedSupplierMinor: order.quote.supplierMinor.toString(), actualSupplierMinor: value.toString(), mode: 'fixture' });
+  await journal(tx, `supplier-cost:${order.id}`, currency, [{ accountId: expense.id, direction: 'DEBIT', amountMinor: value }, { accountId: asset.id, direction: 'CREDIT', amountMinor: value }], { kind: 'supplier-cost', apiContractVersion: order.quote.apiContractVersion, orderId: order.id, provider: order.provider, acceptedSupplierMinor: order.quote.supplierMinor.toString(), actualSupplierMinor: value.toString(), mode: 'fixture' });
 }
 
 async function finish(tx: Transaction, wallet: Wallet, order: Awaited<ReturnType<typeof orderLock>>['order'], outcome: CommerceOutcome, operationId: string) {

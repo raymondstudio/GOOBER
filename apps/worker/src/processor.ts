@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { prisma,Prisma,type ProviderAttempt,type Order,type Product,type Quote } from '@goober/db';
+import { prisma,Prisma,FIXTURE_PROVIDER_CONTRACT_VERSION,type ProviderAttempt,type Order,type Product,type Quote } from '@goober/db';
 import { applyFundingEvent,completeOrder,open,type FundingEvent,type SealedPayload } from '@goober/commerce';
 import { FixtureSupplier,ProviderError,supplierRequestDigest,type AdapterConfig,type FixtureScenario,type Supplier,type SupplierOutcome,type SupplierRequest } from '@goober/providers';
 import { loadEnvironment } from '../../api/src/env.js';
@@ -75,10 +75,10 @@ async function prepare(orderId:string):Promise<{attempt:ProviderAttempt;fenced:b
     const product=order.product;const quote=order.quote;
     if(!['PAI','GRAML'].includes(order.provider)||order.providerMode!=='fixture'||order.paymentMode!=='fixture'||order.providerAccount!=='fixture'||process.env[`${order.provider}_MODE`]!=='fixture')return {reject:'supplier-mode-disabled'};
     if(!product.approved||!product.published||!product.approvalEvidence||product.stock<1||Date.now()-product.observedAt.getTime()>86400000||product.observedAt.getTime()>Date.now()+60000)return {reject:'offer-not-ready'};
-    if(product.environment!=='test'||product.provider!==order.provider||product.providerAccount!==order.providerAccount||product.providerMode!==order.providerMode||quote.provider!==order.provider||quote.providerMode!==order.providerMode||quote.paymentMode!==order.paymentMode||product.version!==quote.productVersion||product.supplierMinor!==quote.supplierMinor||product.supplierCurrency!==quote.supplierCurrency||product.entitlement!==quote.entitlement||product.terms!==quote.terms||!['quantity','none'].includes(product.inputType)||!['code','credential'].includes(product.deliveryType))return {reject:'accepted-snapshot-changed'};
+    if(quote.apiContractVersion!==FIXTURE_PROVIDER_CONTRACT_VERSION||product.apiContractVersion!==quote.apiContractVersion||product.environment!=='test'||product.provider!==order.provider||product.providerAccount!==order.providerAccount||product.providerMode!==order.providerMode||quote.provider!==order.provider||quote.providerMode!==order.providerMode||quote.paymentMode!==order.paymentMode||product.version!==quote.productVersion||product.supplierMinor!==quote.supplierMinor||product.supplierCurrency!==quote.supplierCurrency||product.entitlement!==quote.entitlement||product.terms!==quote.terms||!['quantity','none'].includes(product.inputType)||!['code','credential'].includes(product.deliveryType))return {reject:'accepted-snapshot-changed'};
     if(product.fixtureScenario==='price-change')return {reject:'supplier-price-changed-before-dispatch'};
     const request=requestFor(order);const digest=supplierRequestDigest(order.provider as Supplier,request);
-    if(!attempt){attempt=await tx.providerAttempt.create({data:{...identity,providerMode:order.providerMode,externalReference:order.providerReference,requestDigest:digest,requestPayload:asJson(request)}});}
+    if(!attempt){attempt=await tx.providerAttempt.create({data:{...identity,apiContractVersion:quote.apiContractVersion,providerMode:order.providerMode,externalReference:order.providerReference,requestDigest:digest,requestPayload:asJson(request)}});}
     if(attempt.requestDigest!==digest)return {reject:'prepared-request-changed'};
     const fenced=await tx.providerAttempt.updateMany({where:{id:attempt.id,status:'PREPARED',dispatchCount:0,dispatchedAt:null},data:{status:'DISPATCHING',dispatchCount:{increment:1},dispatchedAt:new Date()}});
     if(fenced.count===1)await tx.order.update({where:{id:orderId},data:{fulfillment:'PROCESSING',version:{increment:1}}});

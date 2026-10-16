@@ -70,6 +70,7 @@ model RateLimit {
 }
 
 model Product {
+  apiContractVersion String @default("goober.fixture.m1.v1")
   id                 String   @id @default(uuid())
   slug               String   @unique
   name               String
@@ -160,6 +161,7 @@ model Posting {
 }
 
 model Quote {
+  apiContractVersion String @default("goober.fixture.m1.v1")
   id               String   @id @default(uuid())
   ownerId          String
   environment      String
@@ -248,6 +250,7 @@ model PaymentIntent {
 }
 
 model ProviderAttempt {
+  apiContractVersion String @default("goober.fixture.m1.v1")
   id                String    @id @default(uuid())
   orderId           String
   order             Order     @relation(fields: [orderId], references: [id])
@@ -361,6 +364,7 @@ model Review {
 }
 
 model SupplierBalanceObservation {
+  apiContractVersion String @default("goober.fixture.m1.v1")
   id              String   @id @default(uuid())
   provider        String
   providerAccount String

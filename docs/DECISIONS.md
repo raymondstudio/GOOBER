@@ -25,3 +25,6 @@ The installed Next16.4.2 TypeScript guide explicitly requires next-env.d.ts to b
 
 ## D008 - Dependency advisory check
 On16October2026, pnpm audit --prod --audit-level=high and pnpm audit --audit-level=high both exited0 with No known vulnerabilities found. This records the registry advisory response for the pinned dependency graph at that time; it is not an independent proof of absence of vulnerabilities or an audit of native binaries.
+
+## D009 - Durable fixture contract identity
+Final requirement reconciliation found provider contract versions existed only in documentation. Added Product/Quote/ProviderAttempt/SupplierBalanceObservation.apiContractVersion and propagated immutable quote/attempt provenance into new supplier treasury journals.202610160002_provider_contract_identity is additive and refuses nonfixture backfill; its label goober.fixture.m1.v1 describes the GOOBER fixture contract, not an invented external supplier guarantee. Existing financial journals/postings remain untouched. Root main migration and isolated PostgreSQL metadata test passed (goober_test_1538d802c656); the first assertion used a more general quote-change code, then was corrected to the actual stricter UNSUPPORTED_PROVIDER_CONTRACT409. Full latest-source verification follows.

@@ -10,3 +10,5 @@ export const prisma = globalForPrisma.gooberPrisma ?? new PrismaClient({
   log: [],
 });
 if (process.env.NODE_ENV !== "production") globalForPrisma.gooberPrisma = prisma;
+
+export const FIXTURE_PROVIDER_CONTRACT_VERSION = "goober.fixture.m1.v1" as const;
