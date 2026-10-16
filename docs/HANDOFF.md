@@ -7,7 +7,7 @@ Implemented local journey: register/sign in, approved synthetic catalog, signed 
 - `apps/web`: responsive Next storefront, authentication handler and same-origin API proxy.
 - `apps/api`: Nest session/role/CSRF/ownership guards, validated commerce/support/operations routes and signed raw callback intake.
 - `apps/worker`: persistent BullMQ consumer with PostgreSQL inbox/outbox recovery, safe diagnostics and permanent supplier dispatch fences.
-- `packages/auth`, `packages/contracts`, `packages/db`: Better Auth database sessions, strict string-money DTOs, Prisma schema, initial migration and PostgreSQL invariant triggers.
+- `packages/auth`, `packages/contracts`, `packages/db`: Better Auth database sessions, strict string-money DTOs, Prisma schema, two migrations and PostgreSQL invariant triggers, including immutable fixture API-contract provenance.
 - `packages/commerce`, `packages/providers`: exact financial domain operations, authenticated encryption, separate typed adapters and durable supplier fixtures.
 - `scripts`, `tests`, `.github`: native service bootstrap, isolated verification/restore/clean-checkout harnesses, integration/browser regressions and CI.
 - `.agents/skills`, `docs`, `AGENTS.md`, root manifests/lockfile: reviewed workflow provenance, adopted requirements, role assignments, decisions and evidence.
@@ -49,6 +49,8 @@ P-AI authenticated sandbox, Graml authenticated read-only and payment test-mode 
 
 Remote CI, public deployment, production changes, supplier purchases/topups, live customer money, publishing and default-branch merging are not claimed. Production email recovery, administrative step-up, real key/backup policy and deployment edge configuration remain release gates. Owner assurance is recorded separately and is not independent permission verification.
 
-Final integrated local result:48database/HTTP tests and6desktop/mobile Chrome checks passed; optimized build and isolated restore passed (26valid deliveries,2corrupt probes rejected). All20acceptance checks and remaining clean-checkout step are tracked in VERIFICATION.md. Machine-readable API: openapi.json.
+Final functional code revision: `56e956d7b2045914446161d73a996cd9dddd6d55`, branch `codex/goober-m1`. Final integrated local result: 49 database/HTTP tests and 6 desktop/mobile Chrome checks passed; lint, type checks, optimized build and isolated restore passed (27 valid deliveries, 2 corrupt probes rejected). All 20 acceptance checks and exact external limits are tracked in VERIFICATION.md. Machine-readable API: OpenAPI 3.1, 26 operations in openapi.json. The final handoff commit changes only documentation/evidence.
 
 Operations also exposes actual database/queue readiness through the existing read-only endpoint, labels live supplier purchasing disabled, and displays audit aggregate references for correlation.
+
+Clean checkout of functional revision 56e956d passed: frozen install, both migrations, grants/seed, lint/type checks, 71 unit tests, optimized build and real production web-to-API session. Evidence: evidence/clean-checkout-local.json, evidence/m1-local.json and evidence/restore-local.json. The verification services were stopped; run `pnpm dev` to start the local application. Local PostgreSQL/Redis-compatible infrastructure remains available.

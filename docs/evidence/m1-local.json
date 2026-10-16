@@ -3,7 +3,7 @@
   "branch": "codex/goober-m1",
   "command": "node scripts/integration.mjs --e2e",
   "exitCode": 0,
-  "run": "76e6151adede",
+  "run": "45a25b525d59",
   "database": "PostgreSQL17.11 (restricted runtime role)",
   "queue": "Memurai4.3.2, Redis API7.2.4, real persistent loopback service",
   "modes": {
@@ -15,7 +15,7 @@
     "webBuild": "optimized production"
   },
   "tests": {
-    "controlledIntegration": 42,
+    "controlledIntegration": 43,
     "http": 6,
     "browser": 6,
     "unit": 71
@@ -44,8 +44,18 @@
     "production": "no known vulnerabilities reported",
     "all": "no known vulnerabilities reported"
   },
-  "cleanCommittedCheckout": "pending",
+  "cleanCommittedCheckout": {
+    "result": "implemented-local",
+    "report": "clean-checkout-local.json",
+    "revision": "56e956d7b2045914446161d73a996cd9dddd6d55",
+    "unitTestsPassed": 71
+  },
   "externalVerification": "unrun; authenticated P-AI sandbox, Graml read-only and payment test credentials unavailable",
   "remoteCI": "unrun",
-  "release": "No deployment, live funds, supplier purchases/topups, push or merge"
+  "release": "No deployment, live funds, supplier purchases/topups, push or merge",
+  "codeRevision": "56e956d7b2045914446161d73a996cd9dddd6d55",
+  "migrations": [
+    "202610150001_initial",
+    "202610160002_provider_contract_identity"
+  ]
 }
