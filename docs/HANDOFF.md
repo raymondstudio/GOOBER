@@ -50,3 +50,5 @@ P-AI authenticated sandbox, Graml authenticated read-only and payment test-mode 
 Remote CI, public deployment, production changes, supplier purchases/topups, live customer money, publishing and default-branch merging are not claimed. Production email recovery, administrative step-up, real key/backup policy and deployment edge configuration remain release gates. Owner assurance is recorded separately and is not independent permission verification.
 
 Final integrated local result:48database/HTTP tests and6desktop/mobile Chrome checks passed; optimized build and isolated restore passed (26valid deliveries,2corrupt probes rejected). All20acceptance checks and remaining clean-checkout step are tracked in VERIFICATION.md. Machine-readable API: openapi.json.
+
+Operations also exposes actual database/queue readiness through the existing read-only endpoint, labels live supplier purchasing disabled, and displays audit aggregate references for correlation.
