@@ -24,6 +24,7 @@ test('customer keyboard journey persists funding, order, reveal, support and ope
   await expect(page.getByRole('button', { name: 'Create account' }).last()).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByText('Session verified', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
   await page.goto('/wallet');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Your account' })).toBeVisible();
@@ -33,6 +34,7 @@ test('customer keyboard journey persists funding, order, reveal, support and ope
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).last().click();
   await expect(page.getByText('Session verified', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
   await page.goto('/wallet');
   await page.getByLabel('Test credit amount (NGN)').fill('20000.00');
   await page.getByRole('button', { name: 'Create funding intent' }).click();

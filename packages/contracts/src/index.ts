@@ -20,5 +20,5 @@ export interface SupportDto {id:string;orderId:string|null;message:string;status
 export interface FundingDto {id:string;reference:string;amountMinor:string;currency:'NGN';mode:'fixture';status:string}
 export interface DeliveryDto {products:string[];revealedAt:string}
 export interface Page<T> {items:T[];nextCursor:string|null}
-export function formatNgn(minor:string):string {const n=BigInt(minor);const absolute=n<0n?-n:n;return (n<0n?'-':'')+'â‚¦'+(absolute/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+(absolute%100n).toString().padStart(2,'0');}
+export function formatNgn(minor:string):string {const n=BigInt(minor);const absolute=n<0n?-n:n;return (n<0n?'-':'')+'\u20a6'+(absolute/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+(absolute%100n).toString().padStart(2,'0');}
 export const API_CONTRACT_VERSION='m1.v1';
