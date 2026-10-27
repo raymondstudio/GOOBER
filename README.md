@@ -13,11 +13,12 @@ pnpm setup:local
 
 The setup command generates independent secrets in ignored `.env` and preserves existing configuration. Keep this file and delivery keys out of commits and screenshots.
 
-Choose one infrastructure path, using loopback PostgreSQL port 54329 and Redis port 6389:
+Choose one infrastructure path, using loopback PostgreSQL port 54329 and Redis port 6389. See [Windows/Docker/WSL diagnostics and exact start/stop commands](docs/LOCAL-RUNTIME.md). On this workstation Docker Desktop has missing installed ISO files and is blocked; the native path remains available.
 
 ```powershell
 # Docker hosts
- docker compose up -d
+ pnpm dev:infra:stop
+ docker compose up -d --wait
 
 # Windows without Docker: verified pinned native development binaries
 powershell -NoProfile -File scripts/infra/install-native.ps1

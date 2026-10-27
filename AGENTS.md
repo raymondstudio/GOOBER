@@ -18,6 +18,10 @@ P-AI uses one stable external_order_id and lookup before verified-safe replay. G
 
 Use PowerShell-compatible commands. Report real test failures and external blockers honestly and continue unrelated work. Each implementation handoff includes runnable commands, commit, acceptance evidence and remaining limits.
 
+## M2 continuation
+
+The owner requests product quality, confirmed bug fixes and safe Docker-on-WSL development from docs/source/GOOBER-M2-codex-prompt.md. Work on codex/goober-m2-product-quality; preserve M1 architecture/data/security/financial invariants. Use bounded audit/frontend/reliability/QA/security agent waves without recursive delegation; lead owns shared files and final integration. Inspect running UI before redesign, record confirmed bugs versus candidates, verify four responsive widths, and commit verified milestones. Use exactly one infrastructure path; never delete volumes or native data, overwrite .env, or reset Docker. A concrete Docker installation blocker does not stop independent native local/test work. No live modes, external purchases, public deployment, push or merge. Record M2 evidence separately from historical M1 results.
+
 ## Skill routing
 
 For substantial tasks, select the relevant installed workflow from docs/SKILLS.md; simple fixes may use direct source reading. Cross-module graph analysis is optional, bounded, code-only and local. React/Next work uses vercel-react-best-practices plus the existing design/accessibility workflows; PostgreSQL work uses supabase-postgres-best-practices plus GOOBER financial/provider invariants. Existing security/Playwright skills remain available. No skill authorizes deployments, external purchases, automatic upgrades, hooks/watchers or application scope changes. Cursor uses the short .cursor/rules/goober-skill-routing.mdc map.

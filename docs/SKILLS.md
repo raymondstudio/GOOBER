@@ -21,6 +21,10 @@ Agent waves: platform, commerce and providers preparation; frontend, quality and
 
 Primary sources: https://learn.chatgpt.com/docs/build-skills ; https://learn.chatgpt.com/docs/agent-configuration/subagents ; https://github.com/openai/skills/tree/49f948faa9258a0c61caceaf225e179651397431/skills/.curated .
 
+## M2 reuse (27 October 2026)
+
+Existing skills reused; no new skill or package installation. Product auditor/frontend read installed ui-ux-pro-max and web-design-guidelines (fresh official Vercel rules); QA/auditor read repository Playwright. Security read security-best-practices with React/Next/Express references plus financial/provider workflows. Reliability read financial/provider workflows and required brief sections. Lead read design, Playwright, financial/provider instructions and applicable Next instructions. Existing palette takes precedence over generic skill palette suggestions. Local UI/UX search is instruction-only guidance, not a new dependency. Native agents and assigned paths are recorded in EXECUTION.md; source/revision/license provenance above is unchanged.
+
 ## Additional setup requested before M2 continuation — 27 October 2026
 
 Source request: C:/Users/USER/Downloads/Lerna_Cursor_Skills_Setup_Prompt.md. It describes Lerna/Cursor; the direct request was to install its skills in this ongoing GOOBER task. GOOBER branch/stack and all existing M2 edits were preserved; no Lerna project, stabilization branch, AI model, Supabase service or application dependency was introduced. M2 implementation was paused during this setup. Installer and skill-creator instructions/scripts were read first.

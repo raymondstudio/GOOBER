@@ -30,11 +30,29 @@ $ErrorActionPreference = 'Continue'
 $pgStatus = $LASTEXITCODE
 $ErrorActionPreference = 'Stop'
 if ($pgStatus -ne 0) {
-  $pgArgs = @('-D', ('"' + $pgData + '"'), '-l', ('"' + (Join-Path $workspace '.local\postgres.log') + '"'), '-o', '"-h 127.0.0.1 -p 54329"', '-w', 'start')
+  $pgArgs = @('-D', ('"' + $pgData + '"'), '-l', ('"' + (Join-Path $workspace '.local\postgres.log') + '"'), '-o', '"-h 127.0.0.1 -p 54329"', '-t', '300', '-w', 'start')
   $pgStart = Start-Process -FilePath (Join-Path $pgBin 'pg_ctl.exe') -ArgumentList $pgArgs -WindowStyle Hidden -PassThru
   $pgStart.WaitForExit()
   if ($pgStart.ExitCode -ne 0) { throw 'PostgreSQL startup failed; inspect ignored .local/postgres.log.' }
 }
+# A preserved cluster may still be replaying WAL/fsyncing after an interrupted laptop session.
+# pg_ctl status means the process exists, not that it accepts connections. Never reset its data.
+$pgReady = $false
+$recoveryWait = [System.Diagnostics.Stopwatch]::StartNew()
+$nextRecoveryNotice = 0
+while ($recoveryWait.Elapsed.TotalSeconds -lt 300) {
+  $ErrorActionPreference = 'Continue'
+  & (Join-Path $pgBin 'pg_isready.exe') '-h' '127.0.0.1' '-p' '54329' '-t' '1' *> $null
+  $readyExit = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
+  if ($readyExit -eq 0) { $pgReady = $true; break }
+  if ($recoveryWait.Elapsed.TotalSeconds -ge $nextRecoveryNotice) {
+    Write-Output 'Waiting for preserved local PostgreSQL recovery; data is unchanged.'
+    $nextRecoveryNotice = $recoveryWait.Elapsed.TotalSeconds + 15
+  }
+  Start-Sleep -Seconds 1
+}
+if (!$pgReady) { throw 'PostgreSQL did not become ready within five minutes; preserve data and inspect .local/postgres.log.' }
 $runtimeParts = $runtimeUri.UserInfo.Split(':',2)
 $migratorParts = $migratorUri.UserInfo.Split(':',2)
 if ($runtimeParts[0] -ne 'goober_runtime' -or $migratorParts[0] -ne 'goober_migrator' -or $runtimeParts[1] -notmatch '^[a-f0-9]{64}$' -or $migratorParts[1] -notmatch '^[a-f0-9]{64}$') { throw 'Unexpected local role credentials; refusing SQL bootstrap.' }

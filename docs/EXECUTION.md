@@ -1,3 +1,49 @@
+# M2 execution — product quality (27 October 2026)
+
+Branch: `codex/goober-m2-product-quality`. Started on a clean `main` at `3ff2441d85432d11f41d6afaa188aad0dae899b3`; functional baseline `56e956d7b2045914446161d73a996cd9dddd6d55` is present. No user changes were reset/stashed. Adopted continuation brief: docs/source/GOOBER-M2-codex-prompt.md (original Downloads path; SHA256 9201fe398fe186cacd9fb449ad18ff20d55f48212f260ebed62277c0222afaf3). Historical M1 results below are not fresh M2 proof.
+
+## Actual native M2 team
+
+No recursive agents. Preparation runs in waves within four active slots. Lead retains shared contracts, schema/migrations, root manifests/lockfile, infrastructure and integration.
+
+| Role | Ownership | Prerequisites and acceptance | Current evidence |
+| --- | --- | --- | --- |
+| Product/UX auditor | Read-only; ignored synthetic screenshots only | Read UI/UX, interface and Playwright instructions; actual desktop/mobile route audit before visual implementation | Source inventory complete; baseline browser audit running |
+| Frontend/product | apps/web only, including DESIGN.md | Read Next/path instructions and design/security workflows; retain API/auth/CSRF/money behavior; polished responsive states | Implemented exclusive apps/web refinement and P2 fixes; scoped lint passed, full regression pending |
+| Bug/reliability | Read-only discovery; narrow backend paths only after assignment | Financial/provider skills and preserved invariants; reproduce before backend fix | Source review found no justified backend change; stale observations must be checked after normal seed |
+| QA/browser | tests/e2e, assigned test helpers, playwright.config.ts | Playwright/financial/provider instructions; actual persisted journeys, failure and responsive360/390/768/1280 evidence | Chrome path fixed; 13 serialized browser checks authored, actual execution pending |
+| Security/financial reviewer | Read-only until assigned finding | Independent complete diff + relevant runtime regression, no high/critical introduced | Complete changed-source review done; two P2 fixes implemented, independent runtime closure pending |
+| Lead integrator | Shared/root/infra/docs and final integration | Single infrastructure path, safe configuration, verified mini-commits and handoff | Local modes verified; native startup/readiness and DB permissions/seed/auth schema/migration status passed; Docker diagnostics below |
+
+## Milestones
+
+| Milestone | Status | Evidence / remaining work |
+| --- | --- | --- |
+| M0 baseline/runtime | native checkpoint verified; Docker blocked | Native PostgreSQL accepting connections/Redis PONG; repeated start, bounded role grants, fixture seed, maintained auth schema and both migration status passed. Fresh initial GOOBER public baseline captured; complete authenticated journey is part of isolated regression. |
+| M1 product/bug audit | public baseline complete | Fresh actual Chrome screenshots at four widths; source/UX evidence and exact unresolved runtime limits in M2-ISSUES.md. |
+| M2 customer refinement | implemented; verification running | Fresh baseline inspected before edits; compact forest/navy editorial store, signed-out gates, safe error handling, cursor navigation and session/resource guards. |
+| M3 operations/accessibility | implemented; browser execution pending | Dense actual-record operations, current navigation/live status, 44px controls and reduced motion; four responsive checks plus authenticated journeys. |
+| M4 independent/regression | running | Lint/types and 71 units passed. Full isolated optimized build + 49 PG/Redis/HTTP + 13 browser checks + restore starting; independent runtime closure/clean committed checkout follow. |
+| M5 handoff | pending | Final commits, current evidence and precise Docker limitation. |
+
+## Infrastructure diagnostics
+
+Windows Docker CLI29.9.1, Compose5.6.0, desktop-linux context. WSL lists Ubuntu and docker-desktop as version2. Before startup both stopped. Windows daemon pipe dockerDesktopLinuxEngine absent; actual readiness503 confirms no database/queue. Installed Docker Desktop4.96.0 startup reports missing resources/wsl/docker-wsl-cli.iso and resources/docker-desktop.iso; both file absence checks confirmed. Ubuntu reports Docker command unavailable without Desktop integration; an initial compound shell probe also hit a quoting error and is not evidence of Engine state. No compose startup, factory reset, reinstall, volume deletion, native data deletion or .env replacement performed. Native stop command was executed before fallback selection; neither service was listening, and it reported no PostgreSQL process/Redis connection refused. Memurai extracted EULA read: development/test/demonstration only, telemetry permitted, no production; vendor ten-day restart behavior retained.
+
+Docker acceptance item remains blocked by the incomplete installation. Continue independent product work on native PostgreSQL/Memurai. Native records remain in place; Docker volumes are distinct and no transfer is claimed. Official workflow reference: https://docs.docker.com/desktop/features/wsl .
+
+## Current M2 checkpoint evidence
+
+Skill-only commit a92d930 installed reviewed Graphify/React/PostgreSQL workflows and bounded routing, preserving all pending product edits. Full provenance and independent synthetic tool proof are in SKILLS.md.
+
+Native startup initially exceeded pg_ctl default60s during preserved-cluster recovery. Startup now budgets recovery explicitly and waits for actual readiness before role SQL. A later user/tool interruption terminated that server; no data was reset. A subsequent fresh start and repeated start both passed. pnpm db:permissions, pnpm db:seed, pnpm auth:schema:check and Prisma migrate status all exited0; both existing migrations applied with no pending work.
+
+Current port3000 is an unrelated Lerna app (confirmed its actual process command points to its separate worktree); no further GOOBER probes or process changes target it. GOOBER verification exclusively uses3005/3006 and fresh test databases. Initial public baseline screenshots were captured when that port served GOOBER, with health503 while infrastructure was offline; no authenticated baseline success is fabricated.
+
+Commands passed before integrated run: pnpm lint; pnpm typecheck; pnpm test:unit --maxWorkers=1 (71/71). Final source full lint/types are repeated only because focused tests/fixes were added afterward. Full run transcript: ignored .local/m2/full-verification-1.log.
+
+---
+
 # Execution tracker
 
 Branch: `codex/goober-m1`. Raymond adopted the source brief Parts A/B/C and authorized implementation on 15 October 2026. Owner assurance is recorded once in DECISIONS.md. Lead owns root configuration, contracts, manifests/lockfile, migrations integration and final commits.
