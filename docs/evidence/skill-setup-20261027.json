@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-27",
+  "scope": "GOOBER project-local skill setup; M2 edits preserved and paused",
+  "installed": [
+    {
+      "name": "graphify",
+      "files": 13,
+      "skillSha256": "5b27a90c966ebcf66f375500b24abdacec6bdbe2645d18d8070f7af8a165bba3",
+      "referencesVerified": [
+        "references/upstream-codex.md",
+        "references/query.md",
+        "references/update.md"
+      ]
+    },
+    {
+      "name": "vercel-react-best-practices",
+      "files": 76,
+      "skillSha256": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
+      "referencesVerified": []
+    },
+    {
+      "name": "supabase-postgres-best-practices",
+      "files": 37,
+      "skillSha256": "ad65e776f45e761bafc609d3f506c77c1032225aa65e0c4c02f241b8071e5855",
+      "referencesVerified": []
+    }
+  ],
+  "graphify": {
+    "package": "graphifyy",
+    "version": "0.9.96",
+    "sourceRevision": "dac063456bc1f5d92354ec3936fd9dd1513a83f3",
+    "wheelSha256": "bbef4c79b5905f45e384a7ca49417cd6c131d4774f280037159dd6cf4c425e29",
+    "dependencyCheck": "passed",
+    "runtime": "isolated Python3.14 Windows venv",
+    "baseWheels": 31,
+    "optionalExtras": [],
+    "fixture": {
+      "files": [
+        "math.ts",
+        "main.ts"
+      ],
+      "nodes": 4,
+      "edges": 5,
+      "allEdgesExtracted": true,
+      "networkConnectDenied": true,
+      "queryPassed": true
+    },
+    "projectIndexing": "none",
+    "globalHooksOrSettingsChanged": false,
+    "independentForwardTest": {
+      "result": "passed",
+      "nodes": 4,
+      "edges": 5,
+      "inputModelTokens": 0,
+      "outputModelTokens": 0,
+      "report": ".local/skills-review-20261027/independent-fixture-result/independent-report.json",
+      "confirmedRelationship": "main.ts imports twice from math.ts; calculate calls twice",
+      "referenceLimitations": [
+        "Use top-level help; query --help is query text",
+        "--out contains graphify-out/graph.json",
+        "Raw edges differs from links in some inline fallbacks",
+        "Optional memory commands require explicitly bounded paths"
+      ],
+      "localAdapterClarified": true
+    }
+  },
+  "cursor": {
+    "version": "3.24.18",
+    "formatAndDocumentedPathsVerified": true,
+    "actualUIDiscovery": "unverified; window capture/list helper timed out",
+    "refreshRequired": true
+  },
+  "apple": {
+    "installed": false,
+    "candidate": "bowen31337/apple-design",
+    "revision": "c95fa1324ca371d7a8df9564ce8a03ff4bed5465",
+    "blocker": "No explicit license grant found",
+    "officialGuidance": "documentation reference only"
+  },
+  "applicationDependenciesChanged": false,
+  "productionChanged": false
+}

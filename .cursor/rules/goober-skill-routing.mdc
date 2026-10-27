@@ -1,0 +1,15 @@
+---
+description: GOOBER task-based skill selection and local-only boundaries
+alwaysApply: true
+---
+
+Honor AGENTS.md, the current user task and the approved stack. Skills grant no deployment, live money, external calls or extra application scope. At substantial task/milestone boundaries, select only the relevant workflow from docs/SKILLS.md; report actual use.
+
+- Cross-module architecture/impact: graphify only when a fresh bounded local code-only index helps; validate source. Simple edits may read source directly. No hooks/watchers/cloud/semantic indexing.
+- React/Next UI: vercel-react-best-practices plus installed ui-ux-pro-max and web-design-guidelines. Preserve GOOBER brand; official Apple HIG is a reference, not an installed Apple skill. Consult installed Next16.4.2 documentation; no canary API assumptions.
+- PostgreSQL/migrations/queries: supabase-postgres-best-practices plus goober-financial-invariants. GOOBER uses Prisma/Better Auth/PostgreSQL, not Supabase auth/storage.
+- Provider/worker recovery: goober-provider-recovery and financial invariants.
+- Requested security review: security-best-practices/security-threat-model. Browser verification: playwright with meaningful positive/negative controls and synthetic data only.
+- Debugging: reproduce, inspect source, make the narrow fix, verify persisted behavior. Observability/privacy: existing security/domain workflows and OWASP logging guidance in the inventory. AI/retrieval guidance is not applicable to the present stack.
+
+Re-evaluate selection if scope changes. Do not install runtimes, upgrade packages or run full scans merely because a skill suggests them.

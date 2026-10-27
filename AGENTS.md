@@ -17,3 +17,7 @@ Financial invariants: exact minor-unit BigInt/string transport; balanced immutab
 P-AI uses one stable external_order_id and lookup before verified-safe replay. Graml purchase is fixture-only in M1; durable dispatch fence prevents any automatic repeat after uncertainty/restart/redelivery. Never invent supplier capabilities. Keep APP_ENV, payment and supplier modes explicit; fixture funds cannot reach live purchases. No production secrets required for local M1.
 
 Use PowerShell-compatible commands. Report real test failures and external blockers honestly and continue unrelated work. Each implementation handoff includes runnable commands, commit, acceptance evidence and remaining limits.
+
+## Skill routing
+
+For substantial tasks, select the relevant installed workflow from docs/SKILLS.md; simple fixes may use direct source reading. Cross-module graph analysis is optional, bounded, code-only and local. React/Next work uses vercel-react-best-practices plus the existing design/accessibility workflows; PostgreSQL work uses supabase-postgres-best-practices plus GOOBER financial/provider invariants. Existing security/Playwright skills remain available. No skill authorizes deployments, external purchases, automatic upgrades, hooks/watchers or application scope changes. Cursor uses the short .cursor/rules/goober-skill-routing.mdc map.

@@ -3,3 +3,6 @@
 .agents/skills/playwright/** -whitespace
 .agents/skills/security-best-practices/** -whitespace
 .agents/skills/security-threat-model/** -whitespace
+.agents/skills/graphify/** -whitespace
+.agents/skills/vercel-react-best-practices/** -whitespace
+.agents/skills/supabase-postgres-best-practices/** -whitespace
