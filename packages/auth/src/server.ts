@@ -17,6 +17,10 @@ function configuration() {
 const config = configuration();
 
 export const auth = betterAuth({
+  // Auth errors may contain database queries, connection details or submitted input.
+  // Keep operational signals without forwarding upstream messages or arguments.
+  logger: { level: "warn", log: () => console.warn("GOOBER auth diagnostic; request details withheld.") },
+  onAPIError: { onError: () => console.warn("GOOBER auth request failed safely.") },
   secret: config.secret,
   baseURL: config.baseURL,
   trustedOrigins: [config.baseURL],

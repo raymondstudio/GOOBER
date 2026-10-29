@@ -7,11 +7,12 @@ import {AppModule} from './app.module.js';
 import {prisma} from '@goober/db';
 import {CommerceError} from '@goober/commerce';
 import {environment} from './env.js';
+import {databaseUnavailable} from './dependency-error.js';
 @Catch()
 class SafeErrorFilter implements ExceptionFilter{
- catch(error:unknown,host:ArgumentsHost){const response=host.switchToHttp().getResponse<Response>();const parser=error as {status?:number;type?:string};const status=error instanceof CommerceError?error.status:error instanceof HttpException?error.getStatus():['entity.parse.failed','entity.too.large'].includes(parser?.type??'')?(parser.status??400):500;
- const message=error instanceof CommerceError||error instanceof HttpException?error.message:status===500?'Request could not be completed':'Check the request body and size';
- const code=error instanceof CommerceError?error.code:status===500?'INTERNAL_ERROR':'HTTP_'+status;
+ catch(error:unknown,host:ArgumentsHost){const response=host.switchToHttp().getResponse<Response>();const parser=error as {status?:number;type?:string};const unavailable=databaseUnavailable(error);const status=error instanceof CommerceError?error.status:error instanceof HttpException?error.getStatus():unavailable?503:['entity.parse.failed','entity.too.large'].includes(parser?.type??'')?(parser.status??400):500;
+ const message=error instanceof CommerceError||error instanceof HttpException?error.message:unavailable?'The service is temporarily unavailable. Please try again shortly.':status===500?'Request could not be completed':'Check the request body and size';
+ const code=error instanceof CommerceError?error.code:unavailable?'SERVICE_UNAVAILABLE':status===500?'INTERNAL_ERROR':'HTTP_'+status;
  response.status(status).setHeader('Cache-Control','no-store');response.json({error:{code,message}});
  }
 }
@@ -28,4 +29,4 @@ export async function bootstrap(){
 }
 const app=await bootstrap();
 for(const signal of ['SIGTERM','SIGINT'] as const)process.once(signal,()=>{void app.close().then(()=>prisma.$disconnect());});
-console.log('GOOBER API ready on loopback; data environment '+environment.environment);
+console.log('GOOBER API listening on loopback; dependency health is reported by /api/v1/health/ready; data environment '+environment.environment);
