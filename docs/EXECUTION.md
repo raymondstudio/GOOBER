@@ -1,3 +1,20 @@
+# M3 execution — 29 October 2026
+
+Branch: codex/goober-m3-auth-recovery-landing-redesign, created from clean M2 handoff097c2e653016b626c5f6319376d445185f06ef62; functional M2ce71c42 preserved. Source: docs/source/GOOBER-M3-auth-recovery-landing-redesign-prompt.md. No screenshot attached in this turn; M2 captures available, current running UI inspection required before redesign.
+
+| Gate | Status | Evidence / dependency |
+| --- | --- | --- |
+| G0 preserve | PASS | Clean worktree, actual graph inspected; requested branch created without reset/stash. |
+| G1 runtime | investigating | Runtime agent read-only Windows/native/Docker/startup investigation; no infrastructure switch. |
+| G2 design/skills | in progress | Lead find-skills/license inventory; read-only design auditor current HIG and existing UI. |
+| G3 implementation | waiting | Runtime and design findings first; exclusive apps/web engineer next wave. |
+| G4 verification | waiting | Dedicated QA plus read-only security; serial actual PG/Redis/browser/recovery/restore. |
+| G5 handoff | waiting | Verified mini-commits and separate M3 evidence. |
+
+Actual native team wave1: m3_runtime read-only source/runtime diagnostics; m3_design_audit read-only brand/page/state/HIG audit; m3_security read-only auth/financial failure boundaries. Lead owns root/shared and skill review. No recursive agents. Subsequent frontend apps/web only; QA tests/scripts only by explicit assignment. Each reads AGENTS/path/assigned skills and reports paths, commands/results and blockers.
+
+---
+
 # M2 execution — product quality (27 October 2026)
 
 Branch: `codex/goober-m2-product-quality`. Started on a clean `main` at `3ff2441d85432d11f41d6afaa188aad0dae899b3`; functional baseline `56e956d7b2045914446161d73a996cd9dddd6d55` is present. No user changes were reset/stashed. Adopted continuation brief: docs/source/GOOBER-M2-codex-prompt.md (original Downloads path; SHA256 9201fe398fe186cacd9fb449ad18ff20d55f48212f260ebed62277c0222afaf3). Historical M1 results below are not fresh M2 proof.

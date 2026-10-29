@@ -25,3 +25,7 @@ The owner requests product quality, confirmed bug fixes and safe Docker-on-WSL d
 ## Skill routing
 
 For substantial tasks, select the relevant installed workflow from docs/SKILLS.md; simple fixes may use direct source reading. Cross-module graph analysis is optional, bounded, code-only and local. React/Next work uses vercel-react-best-practices plus the existing design/accessibility workflows; PostgreSQL work uses supabase-postgres-best-practices plus GOOBER financial/provider invariants. Existing security/Playwright skills remain available. No skill authorizes deployments, external purchases, automatic upgrades, hooks/watchers or application scope changes. Cursor uses the short .cursor/rules/goober-skill-routing.mdc map.
+
+## M3 continuation
+
+Continue from verified M2 handoff097c2e6 on codex/goober-m3-auth-recovery-landing-redesign under docs/source/GOOBER-M3-auth-recovery-landing-redesign-prompt.md. Diagnose dependency health from Windows before auth changes; retain database rate limits and durable worker recovery. Use bounded read-only discovery then exclusive frontend/runtime/QA work, independent security review, no nested agents. Verify healthy and unavailable DB/Redis, persisted auth/catalog/customer journey, four responsive widths, restore and committed clean checkout. Keep one infrastructure path and preserve all records, .env and M2 evidence. Lead owns shared/root/configuration/integration. No live money, external purchases, deployment, push or merge. Record M3 evidence separately.

@@ -6,3 +6,6 @@
 .agents/skills/graphify/** -whitespace
 .agents/skills/vercel-react-best-practices/** -whitespace
 .agents/skills/supabase-postgres-best-practices/** -whitespace
+
+.agents/skills/apple-design/** -whitespace
+.agents/skills/frontend-design/** -whitespace
