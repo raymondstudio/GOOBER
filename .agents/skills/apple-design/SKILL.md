@@ -1,23 +1,10 @@
 ---
 name: apple-design
-description: >-
-  Build web interfaces (HTML/CSS/JS, React, Vue, Tailwind) that look and feel
-  like Apple made them — the real Apple aesthetic, not generic glassmorphism.
-  Covers Liquid Glass / iOS-26 materials as rendered CSS+SVG (specular
-  highlights, refraction, vibrancy, fallbacks), Apple's fluid-motion physics
-  (springs by damping/response, velocity handoff, momentum projection,
-  interruptibility, rubber-banding) implemented in BOTH Motion (motion.dev) and
-  GSAP (Flip, ScrollTrigger, SplitText, Inertia), SF typography optics, a
-  drop-in Apple design-token layer, and complete copy-paste components (glass
-  nav, spring bottom sheet, segmented control, toasts, popovers). USE THIS SKILL
-  whenever the user wants something to look "Apple-like", "like iOS/macOS",
-  "clean and premium", "polished", "Apple-quality"; mentions Liquid Glass,
-  frosted/translucent/glass UI, backdrop blur, SF Pro, iOS-style springs or
-  sheets/drawers, Apple-style scroll animations, or a bottom sheet; or asks you
-  to design/build/restyle/review a landing page, app UI, nav bar, modal, card,
-  or animation and premium fit-and-finish matters — even if they don't say the
-  word "Apple". Prefer this over generic UI advice for any high-polish web UI.
+description: Apply reviewed Apple-inspired web typography, restrained feedback and reduced-motion guidance when explicitly requested. Preserve GOOBER branding and project constraints; do not import Apple tokens, fonts, assets or animation dependencies.
 ---
+
+> Local adaptation: shortened discovery metadata to meet Codex validation. Original is references/upstream-SKILL.md. Project mandates override generic assets/library instructions below.
+
 
 # Apple Design (for the web)
 
