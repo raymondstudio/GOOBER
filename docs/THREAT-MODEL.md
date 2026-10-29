@@ -157,3 +157,9 @@ The following implementation paths were inspected during the integrated review.
 - Skills read: pinned official `security-best-practices` (Next.js, React and Express references), `security-threat-model` and its output template, plus repository-local financial/provider workflows. Provenance belongs in `docs/SKILLS.md`; the owner instruction overrides skill prompts that would pause implementation to reconfirm supplied context or already-authorized fixes.
 
 Final local verification A is documented in VERIFICATION.md:49 integration/HTTP + 6 Chrome checks and isolated restore passed at functional revision 56e956d. Threat severity labels describe inherent impact, not open implementation findings. All five concrete security findings are resolved for this local slice; external/provider and production assumptions remain explicit release limits.
+
+## M2 changed-surface review (27 October 2026)
+
+TM-001/TM-007 now explicitly include asynchronous client-state exposure: old resource/reveal results must not restore private content after owner/session identity changes. Request generations, aborts, path/order binding and auth-loss invalidation are implemented and actual401/held-reveal browser regressions pass. TM-007 also includes native support-form submission through an unrelated pagination button; type=button plus a real zeroPOST/draft-preservation check closes that path. A real streamed401 abort unit guards global-session side effects. Source/log review is independent; runtime suite execution was by lead.
+
+The monetary change is only a Unicode display symbol. Core original PostgreSQL/Redis/API invariants reran successfully, and restore retained balanced totals and fences. This model does not claim manual screen-reader conformance, authenticated external provider guarantees, Docker functionality on an incomplete installation, or production readiness. Current complete evidence is M2-VERIFICATION.md.

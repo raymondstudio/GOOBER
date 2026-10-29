@@ -1,3 +1,7 @@
+# Current M2 evidence
+
+See [M2 verification](M2-VERIFICATION.md) for the 27 October product/runtime results, 10 M2 acceptance outcomes, current code revision and exact Docker/external limitations. The original 20-check M1 matrix below is retained as historical evidence. M2 reran its same43controlled/6HTTP scenarios plus13browser checks and76units; no in-memory substitute was used for database/concurrency proof.
+
 # M1 verification evidence
 
 This matrix implements the adopted brief B7, checks 1–20. Results below distinguish real local PostgreSQL/Redis fixtures from external verification. Synthetic fixture evidence never establishes authenticated supplier or payment behavior.

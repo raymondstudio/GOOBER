@@ -1,0 +1,19 @@
+{
+  "revision": "ce71c428b548a335b3c58fa5e0fe723c728e05d7",
+  "commands": [
+    "pnpm install --frozen-lockfile --ignore-scripts",
+    "pnpm db:generate",
+    "pnpm db:migrate",
+    "node --import tsx scripts/infra/permissions.ts",
+    "pnpm db:seed",
+    "pnpm lint",
+    "pnpm typecheck",
+    "pnpm test:unit",
+    "pnpm build",
+    "production web/API boot + real auth session request"
+  ],
+  "result": "implemented-local",
+  "checkout": "C:\\Users\\USER\\Desktop\\CODE PROJECTS\\GOOBER\\GOOBER\\.local\\clean-checkout-5b01022547a0\\repo",
+  "database": "goober_test_5b01022547a0",
+  "limitation": "Local clean clone, production build and actual auth/API boot; remote CI and external providers not claimed"
+}

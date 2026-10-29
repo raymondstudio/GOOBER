@@ -1,0 +1,33 @@
+{
+  "basis": "Source-defined CSS foreground/background pairs; not a full WCAG conformance audit",
+  "pairs": [
+    {
+      "role": "primary action",
+      "foreground": "#ffffff",
+      "background": "#155d43",
+      "ratio": 7.84,
+      "normalText4_5": true
+    },
+    {
+      "role": "body text",
+      "foreground": "#162b36",
+      "background": "#f8f7f3",
+      "ratio": 13.67,
+      "normalText4_5": true
+    },
+    {
+      "role": "secondary text",
+      "foreground": "#55656b",
+      "background": "#f8f7f3",
+      "ratio": 5.66,
+      "normalText4_5": true
+    },
+    {
+      "role": "error text",
+      "foreground": "#7a2a20",
+      "background": "#fff7f3",
+      "ratio": 9.11,
+      "normalText4_5": true
+    }
+  ]
+}

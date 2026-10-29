@@ -8,11 +8,11 @@ No recursive agents. Preparation runs in waves within four active slots. Lead re
 
 | Role | Ownership | Prerequisites and acceptance | Current evidence |
 | --- | --- | --- | --- |
-| Product/UX auditor | Read-only; ignored synthetic screenshots only | Read UI/UX, interface and Playwright instructions; actual desktop/mobile route audit before visual implementation | Source inventory complete; baseline browser audit running |
-| Frontend/product | apps/web only, including DESIGN.md | Read Next/path instructions and design/security workflows; retain API/auth/CSRF/money behavior; polished responsive states | Implemented exclusive apps/web refinement and P2 fixes; scoped lint passed, full regression pending |
-| Bug/reliability | Read-only discovery; narrow backend paths only after assignment | Financial/provider skills and preserved invariants; reproduce before backend fix | Source review found no justified backend change; stale observations must be checked after normal seed |
-| QA/browser | tests/e2e, assigned test helpers, playwright.config.ts | Playwright/financial/provider instructions; actual persisted journeys, failure and responsive360/390/768/1280 evidence | Chrome path fixed; 13 serialized browser checks authored, actual execution pending |
-| Security/financial reviewer | Read-only until assigned finding | Independent complete diff + relevant runtime regression, no high/critical introduced | Complete changed-source review done; two P2 fixes implemented, independent runtime closure pending |
+| Product/UX auditor | Read-only; ignored synthetic screenshots only | Read UI/UX, interface and Playwright instructions; actual desktop/mobile route audit before visual implementation | Fresh Chrome baseline public/signed-out audit complete; nine ignored screenshots |
+| Frontend/product | apps/web only, including DESIGN.md | Read Next/path instructions and design/security workflows; retain API/auth/CSRF/money behavior; polished responsive states | Implemented exclusive apps/web refinement and P2 fixes; scoped and full lint/types plus all13browser regressions passed |
+| Bug/reliability | Read-only discovery; narrow backend paths only after assignment | Financial/provider skills and preserved invariants; reproduce before backend fix | Source review found no justified backend change; normal seed refreshed fixture observations; full quote journey passed without relaxing freshness |
+| QA/browser | tests/e2e, assigned test helpers, playwright.config.ts | Playwright/financial/provider instructions; actual persisted journeys, failure and responsive360/390/768/1280 evidence | Chrome path fixed; 13 serialized browser checks authored and passed in lead execution |
+| Security/financial reviewer | Read-only until assigned finding | Independent complete diff + relevant runtime regression, no high/critical introduced | Complete changed-source review done; two P2 fixes implemented; independent source and selected lead transcript closure complete (no separate full runtime run) |
 | Lead integrator | Shared/root/infra/docs and final integration | Single infrastructure path, safe configuration, verified mini-commits and handoff | Local modes verified; native startup/readiness and DB permissions/seed/auth schema/migration status passed; Docker diagnostics below |
 
 ## Milestones
@@ -21,10 +21,10 @@ No recursive agents. Preparation runs in waves within four active slots. Lead re
 | --- | --- | --- |
 | M0 baseline/runtime | native checkpoint verified; Docker blocked | Native PostgreSQL accepting connections/Redis PONG; repeated start, bounded role grants, fixture seed, maintained auth schema and both migration status passed. Fresh initial GOOBER public baseline captured; complete authenticated journey is part of isolated regression. |
 | M1 product/bug audit | public baseline complete | Fresh actual Chrome screenshots at four widths; source/UX evidence and exact unresolved runtime limits in M2-ISSUES.md. |
-| M2 customer refinement | implemented; verification running | Fresh baseline inspected before edits; compact forest/navy editorial store, signed-out gates, safe error handling, cursor navigation and session/resource guards. |
-| M3 operations/accessibility | implemented; browser execution pending | Dense actual-record operations, current navigation/live status, 44px controls and reduced motion; four responsive checks plus authenticated journeys. |
-| M4 independent/regression | running | Lint/types and 71 units passed. Full isolated optimized build + 49 PG/Redis/HTTP + 13 browser checks + restore starting; independent runtime closure/clean committed checkout follow. |
-| M5 handoff | pending | Final commits, current evidence and precise Docker limitation. |
+| M2 customer refinement | implemented-local/pass | Fresh baseline inspected before edits; compact forest/navy editorial store, signed-out gates, safe error handling, cursor navigation and session/resource guards. |
+| M3 operations/accessibility | implemented-local/pass | Dense actual-record operations, current navigation/live status, 44px controls and reduced motion; four responsive checks plus authenticated journeys. |
+| M4 independent/regression | full suite and clean checkout passed | Functional commitce71c42: lint/types76units,43controlled+6HTTP,13browser and isolated restore passed. Independent source/focused transcript review complete. Fresh committed checkout passed at the same functional revision. |
+| M5 handoff | complete locally; Docker blocked | Product commitce71c42, skillsa92d930, native/audit25c4500; sanitized reports and final documents, Docker blocked explicitly. |
 
 ## Infrastructure diagnostics
 
@@ -95,3 +95,7 @@ Independent browser verification found an enabled credential form could submit a
 Final integrated command: `node scripts/integration.mjs --e2e`, exit 0 at functional code revision 56e956d7b2045914446161d73a996cd9dddd6d55. Source DB goober_test_45a25b525d59; restored DB goober_restore_1d95f20e6cba. 43 controlled integration + 6 HTTP + 6 browser checks passed. 27 valid deliveries decrypted, 2 corrupt probes rejected, per-currency totals/149 journals/298 postings retained, Graml fence 1 and dispatch pause proven. Both migrations applied; immutable fixture contract provenance passed direct PostgreSQL regression. Browser screenshots visually inspected. OpenAPI3.1 contract covers26operations in docs/openapi.json.
 
 Final clean checkout: `pnpm test:clean-checkout` exited 0 at 56e956d, clone c00c2f8c7397. Frozen installation, both migrations, grants/seed, lint, types, 71 units, optimized build and real production web/auth/API boot passed. Committed sanitized reports are in docs/evidence. All local G0–G5 requirements are complete with the external/release limits above; remote CI was not run.
+
+## Final M2 integrated result
+
+Functional commitce71c428b548a335b3c58fa5e0fe723c728e05d7. Final full attempt21d1f7e945f0 exited0: lint/types76units,43controlledPG/Redis+6HTTP,13Chrome156browser checks and isolated restore passed. RestoreDBgoober_restore_920075a2053d retained196journals/392postings/64orders/30deliveries/54fences, matchingNGN/USD totals;28valid deliveries decrypt,2corruptprobes reject, Graml1 and newdispatchpaused. Four widths, focus and reduced motion assertions passed. Clean committed checkout5b01022547a0 passed at the same revision: frozen install, migrations/grants/seed, lint/types,76units, build and actual authenticated production web/API boot on3007/3008. Isolated databasegoober_test_5b01022547a0 retained; sanitized reportdocs/evidence/m2-clean-checkout-local.json. M4/M5 locally closed; Docker remains blocked.

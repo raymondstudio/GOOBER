@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-27",
+  "branch": "codex/goober-m2-product-quality",
+  "codeRevision": "ce71c428b548a335b3c58fa5e0fe723c728e05d7",
+  "command": "node scripts/integration.mjs --e2e",
+  "exitCode": 0,
+  "run": "21d1f7e945f0",
+  "environment": {
+    "application": "test",
+    "data": "test",
+    "payment": "fixture",
+    "pai": "fixture",
+    "graml": "fixture",
+    "database": "PostgreSQL17.11 restricted runtime role",
+    "queue": "Memurai4.3.2 Redis API7.2.4 real persistent service",
+    "web": "optimized production build on3005",
+    "api": 3006
+  },
+  "tests": {
+    "unit": 76,
+    "controlledIntegration": 43,
+    "http": 6,
+    "browser": 13
+  },
+  "browser": {
+    "name": "Google Chrome",
+    "version": "156.0.8078.48",
+    "authenticatedViewports": [
+      {
+        "width": 1440,
+        "height": 1000
+      },
+      {
+        "width": 412,
+        "height": 839
+      }
+    ],
+    "responsiveWidths": [
+      360,
+      390,
+      768,
+      1280
+    ],
+    "automaticScreenshotsAndTraces": false,
+    "explicitSafeScreenshots": "ignored .local/m2/qa and output/playwright"
+  },
+  "restoreReport": "m2-restore-local.json",
+  "contrastReport": "m2-contrast-local.json",
+  "security": {
+    "independentSourceAndTranscriptReview": true,
+    "independentSeparateRuntimeExecution": false,
+    "unresolvedIntroducedHighCritical": 0,
+    "findings": [
+      "pagination authorization invalidation",
+      "related-order button non-submit",
+      "aborted response cannot expire newer session"
+    ],
+    "note": "401 paths runtime checked; pagination403 branch source reviewed"
+  },
+  "cleanCheckout": {
+    "status": "PASS",
+    "revision": "ce71c428b548a335b3c58fa5e0fe723c728e05d7",
+    "report": "m2-clean-checkout-local.json",
+    "database": "goober_test_5b01022547a0"
+  },
+  "infrastructure": {
+    "active": "native PostgreSQL/Memurai",
+    "docker": "blocked: missing Docker Desktop installed WSL/LinuxKit ISO files",
+    "nativeDataPreserved": true,
+    "dockerVolumesChanged": false
+  },
+  "skillsSetupCommit": "a92d930",
+  "baselineCommit": "25c4500",
+  "externalVerification": "unrun: authenticated P-AI sandbox, Graml read-only and payment test access unavailable",
+  "remoteCI": "unrun",
+  "release": "No deployment, push, merge, live money or paid supplier operations",
+  "handoffFinalized": "2026-10-29"
+}

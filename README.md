@@ -1,6 +1,6 @@
 # GOOBER
 
-Persistent local M1 storefront built with TypeScript/pnpm, Next.js, NestJS, Better Auth, Prisma/PostgreSQL and Redis/BullMQ. All seeded products, balances and supplier outcomes are explicitly synthetic. Public deployment and live economic operations are disabled.
+Responsive M2 storefront and operations UI on a persistent local M1 foundation, built with TypeScript/pnpm, Next.js, NestJS, Better Auth, Prisma/PostgreSQL and Redis/BullMQ. All seeded products, balances and supplier outcomes are explicitly synthetic. Public deployment and live economic operations are disabled.
 
 ## Run locally
 
@@ -36,7 +36,7 @@ pnpm auth:schema:check
 pnpm dev
 ```
 
-Open http://127.0.0.1:3000. Use that exact origin for cookie and CSRF checks. The API binds loopback port 3001. Register a synthetic account, browse fixture products, create a wallet funding intent and verify its signed test event, accept a server quote, then inspect the asynchronous order. Reopen orders to see persisted status. Delivery requires a recent session and an explicit reveal; support requests are linked to owned orders.
+Open http://127.0.0.1:3000. If another project already uses that port, use the process-only3010/3011 overrides in [LOCAL-RUNTIME.md](docs/LOCAL-RUNTIME.md#run-goober-alongside-another-local-app). Use that exact origin for cookie and CSRF checks. The API binds loopback port 3001. Register a synthetic account, browse fixture products, create a wallet funding intent and verify its signed test event, accept a server quote, then inspect the asynchronous order. Reopen orders to see persisted status. Delivery requires a recent session and an explicit reveal; support requests are linked to owned orders.
 
 To inspect the same records in operations, register a separate local operator and grant the role with an audited command:
 
@@ -65,7 +65,7 @@ Windows browser checks use installed Google Chrome. Linux/CI uses the installed 
 
 `pnpm verify` runs lint, types, units, optimized build and the complete isolated suite. After a local commit, `pnpm test:clean-checkout` clones committed files into an ignored directory, installs the frozen lockfile, migrates a new database and checks seed/lint/types/unit/build. The CI workflow uses real PostgreSQL/Redis; local results do not establish remote CI success.
 
-See the [OpenAPI contract](docs/openapi.json), [verification evidence](docs/VERIFICATION.md), [execution status](docs/EXECUTION.md), [security review](docs/security-review.md), [threat model](docs/THREAT-MODEL.md), [skill provenance](docs/SKILLS.md) and [decisions](docs/DECISIONS.md).
+See the [M2 handoff](docs/M2-HANDOFF.md), [M2 acceptance evidence](docs/M2-VERIFICATION.md), [OpenAPI contract](docs/openapi.json), [verification evidence](docs/VERIFICATION.md), [execution status](docs/EXECUTION.md), [security review](docs/security-review.md), [threat model](docs/THREAT-MODEL.md), [skill provenance](docs/SKILLS.md) and [decisions](docs/DECISIONS.md).
 
 ## Boundaries and recovery
 

@@ -59,3 +59,19 @@ Check the relevant distro's CLI, daemon and compose before choosing it. Run comp
 ## Data and verification
 
 Keep existing native records in place. A transfer needs a PostgreSQL17 dump, isolated restore, matching totals/decryptable delivery keys and paused dispatch as described in VERIFICATION.md and scripts/verify-restore.mjs. Do not import over a populated Docker database or claim that its volume contains native records. No transfer was performed in M2. Verification runners create separate named test/restore databases and leave the main records intact.
+
+## Run GOOBER alongside another local app
+
+Port3000 was found serving a different project during M2. Leave that app alone. Use another PowerShell terminal with process-only overrides; .env and its secrets stay unchanged:
+
+```powershell
+pnpm dev:infra
+$env:WEB_PORT='3010'
+$env:API_PORT='3011'
+$env:TRUSTED_ORIGIN='http://127.0.0.1:3010'
+$env:BETTER_AUTH_URL=$env:TRUSTED_ORIGIN
+$env:INTERNAL_API_ORIGIN='http://127.0.0.1:3011'
+pnpm dev
+```
+
+Open http://127.0.0.1:3010. Ctrl+C stops the application launched in that terminal; pnpm dev:infra:stop stops native infrastructure without deleting data. Close the terminal to discard its temporary environment overrides. The verification runner independently uses3005/3006 and clean checkout3007/3008, so it does not address or stop another application's3000 listener.

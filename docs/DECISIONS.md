@@ -33,3 +33,11 @@ Final requirement reconciliation found provider contract versions existed only i
 Retaining an isolated clean clone under ignored .local exposed that Vitest CLI substring filters also selected that clone's test files. Verification now explicitly includes only tests/unit and tests/integration under the active project root. The duplicate-collection run was stopped and retained as failed/debug evidence. This preserves clean clones without allowing old source to influence the current suite. Operations adds a read-only database/queue readiness link, live-purchase-off label and visible audit aggregate references. Final source-only integrated run 45a25b525d59 passed all 49 integration/HTTP and 6 browser checks.
 
 Final clean checkout c00c2f8c7397 at functional revision 56e956d passed frozen install, both migrations, restricted grants/seed, lint/type checks, 71 unit tests, optimized build and actual production web/auth/API boot. Final documentation-only changes record these results without changing the verified executable source.
+
+## D011 — M2 local infrastructure and preserved data (27 October 2026)
+
+Docker Desktop is installed but its own startup log and file checks show missing docker-wsl-cli.iso and docker-desktop.iso. The daemon is unavailable; no compose startup, repair, reset, deletion or transfer was attempted. Continue authorized local M2 on the existing native PostgreSQL17.11/Memurai path, with exactly one database/queue path. Native readiness, role grants, seed, maintained auth schema and both migration statuses passed; pg_ctl recovery now has an explicit bounded wait before role setup. Docker acceptance remains blocked until the incomplete Desktop installation is repaired. The main native records and .env were retained.
+
+## D012 — M2 presentation-only currency correction
+
+Actual browser screenshots and four failing display regressions reproduced the malformed naira prefix (three mojibake characters). Replaced only that prefix with escaped Unicode U20A6. BigInt arithmetic, accepted money amounts, JSON transport, quote versions and financial database records remain unchanged. Zero, grouped positive, beyond-safe-integer and signed display cases are tested.
