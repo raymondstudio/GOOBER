@@ -1,0 +1,73 @@
+{
+  "sourceDatabase": "goober_test_e1974f531c3a",
+  "restoredDatabase": "goober_restore_47acea0f248e",
+  "original": {
+    "counts": {
+      "journals": "190",
+      "postings": "380",
+      "orders": "65",
+      "deliveries": "44",
+      "fences": "48"
+    },
+    "totals": [
+      {
+        "currency": "NGN",
+        "direction": "CREDIT",
+        "total": "1000040595050"
+      },
+      {
+        "currency": "NGN",
+        "direction": "DEBIT",
+        "total": "1000040595050"
+      },
+      {
+        "currency": "USD",
+        "direction": "CREDIT",
+        "total": "1000000002551"
+      },
+      {
+        "currency": "USD",
+        "direction": "DEBIT",
+        "total": "1000000002551"
+      }
+    ]
+  },
+  "restored": {
+    "counts": {
+      "journals": "190",
+      "postings": "380",
+      "orders": "65",
+      "deliveries": "44",
+      "fences": "48"
+    },
+    "totals": [
+      {
+        "currency": "NGN",
+        "direction": "CREDIT",
+        "total": "1000040595050"
+      },
+      {
+        "currency": "NGN",
+        "direction": "DEBIT",
+        "total": "1000040595050"
+      },
+      {
+        "currency": "USD",
+        "direction": "CREDIT",
+        "total": "1000000002551"
+      },
+      {
+        "currency": "USD",
+        "direction": "DEBIT",
+        "total": "1000000002551"
+      }
+    ]
+  },
+  "decryptableSyntheticDeliveries": 35,
+  "deliberatelyCorruptedProbesRejected": 9,
+  "restoredGramlDispatchCount": 1,
+  "newDispatchPaused": true,
+  "elapsedMs": 22268,
+  "status": "implemented-local",
+  "limitation": "Synthetic encryption keys and fixture providers only; no production RPO/RTO claim. Corruption probes are explicit nonfinancial test fixtures."
+}

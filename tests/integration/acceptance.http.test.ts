@@ -1,11 +1,12 @@
 import { randomUUID, randomBytes } from 'node:crypto';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { request as httpRequest } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { prisma } from '@goober/db';
 import { signHmac } from '@goober/providers';
 import type { FundingDto, OrderDto, QuoteDto } from '@goober/contracts';
+import { scanPrivateArtifacts } from '../helpers/privacy-scan.ts';
 
 const origin = process.env.TRUSTED_ORIGIN!;
 type Identity = { id: string; cookie: string };
@@ -148,10 +149,12 @@ describe('independent HTTP acceptance against isolated running services', () => 
     const assets = [...allFiles(resolve('apps/web/.next-test/static')), ...allFiles(resolve('apps/web/.next-test/dev/static'))].filter(file => file.endsWith('.js'));
     expect(assets.length, 'a real rendered page must produce browser assets').toBeGreaterThan(0);
     const files = [...allFiles(directory).filter(file => file.endsWith('.log')), ...assets];
-    for (const file of files) {
-      const content = readFileSync(file, 'utf8'); expect(content.includes(marker), file).toBe(false);
-      for (const key of ['DELIVERY_KEY', 'BETTER_AUTH_SECRET', 'FIXTURE_WEBHOOK_SECRET']) expect(content.includes(process.env[key]!), `${file}: ${key}`).toBe(false);
-    }
+    const scanned = await scanPrivateArtifacts(files, { private_canary: marker,
+      DELIVERY_KEY: process.env.DELIVERY_KEY, BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+      FIXTURE_WEBHOOK_SECRET: process.env.FIXTURE_WEBHOOK_SECRET });
+    expect(scanned.files).toBe(files.length);
+    expect(scanned.matches, 'Private values must not enter any selected service log or browser asset').toEqual([]);
+    console.info(`Privacy scan: ${scanned.files} files, ${scanned.bytes} bytes, ${scanned.elapsedMs}ms`);
     const jobs = await prisma.outbox.findMany({ select: { payload: true, lastError: true } });
     expect(JSON.stringify(jobs)).not.toContain(marker); expect(JSON.stringify(jobs)).not.toContain('GOOBER-FIXTURE-SECRET');
   });

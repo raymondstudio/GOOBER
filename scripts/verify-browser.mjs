@@ -2,6 +2,7 @@ import { readFileSync, mkdirSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { root, baseEnvironment, launch, stop, waitFor, execute } from './verify-harness.mjs';
+import { assertVerifiedBuild, buildVerified } from './verification-build.mjs';
 
 // Targeted rerun after a recorded core/HTTP run; this never claims those suites reran.
 const token = process.argv[2];
@@ -15,11 +16,14 @@ env.VERIFY_DIRECTORY = resolve(directory, `browser-${randomBytes(3).toString('he
 mkdirSync(env.VERIFY_DIRECTORY, { recursive: true });
 const services = [];
 try {
-  await execute(['scripts/web.mjs', 'build'], env, { logFile: resolve(env.VERIFY_DIRECTORY, 'build.log') });
+  if (process.argv.includes('--reuse-build')) assertVerifiedBuild(env, directory);
+  else await buildVerified(env, directory, { logFile: resolve(env.VERIFY_DIRECTORY, 'build.log') });
   services.push(launch(['--import', 'tsx', 'apps/api/src/main.ts'], env, resolve(env.VERIFY_DIRECTORY, 'api.log')));
+  await waitFor(`${env.INTERNAL_API_ORIGIN}/api/v1/health/ready`, services);
   services.push(launch(['scripts/web.mjs', 'start'], env, resolve(env.VERIFY_DIRECTORY, 'web.log')));
   services.push(launch(['--import', 'tsx', 'apps/worker/src/main.ts'], env, resolve(env.VERIFY_DIRECTORY, 'worker.log')));
   for (const route of ['/api/v1/health/ready','/api/auth/get-session','/sign-in','/wallet','/products/fixture-studio','/orders','/orders/warmup-fixture','/support','/operations']) await waitFor(`${env.TRUSTED_ORIGIN}${route}`, services);
+  if (process.argv.includes('--http')) await execute(['node_modules/vitest/vitest.mjs', 'run', 'tests/integration/acceptance.http.test.ts', '--pool=threads', '--maxWorkers=1'], env);
   await execute(['node_modules/@playwright/test/cli.js', 'test'], env);
 } finally { for (const child of services.reverse()) await stop(child); }
 await execute(['--import', 'tsx', 'scripts/verify-restore.mjs'], env);

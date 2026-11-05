@@ -1,0 +1,123 @@
+{
+  "date": "2026-10-29",
+  "browser": {
+    "channel": "msedge",
+    "version": "156.0.4314.50"
+  },
+  "scope": "Focused real browser signup/signout/signin plus anonymous catalog at four widths; no worker in this probe, not the full 15-case suite.",
+  "transport": [
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/api/auth/sign-up/email",
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/api/auth/sign-in/email",
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/me",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "views": [
+    {
+      "width": 360,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "overflow": false
+    }
+  ],
+  "auth": [
+    {
+      "stage": "signup",
+      "verified": true,
+      "notice": "none",
+      "meStatus": 200,
+      "cookies": [
+        {
+          "name": "goober.session_token",
+          "domain": "127.0.0.1",
+          "path": "/",
+          "secure": false,
+          "httpOnly": true,
+          "sameSite": "Lax"
+        }
+      ]
+    },
+    {
+      "stage": "signin",
+      "verified": true,
+      "notice": "none",
+      "meStatus": 200,
+      "cookies": [
+        {
+          "name": "goober.session_token",
+          "domain": "127.0.0.1",
+          "path": "/",
+          "secure": false,
+          "httpOnly": true,
+          "sameSite": "Lax"
+        }
+      ]
+    }
+  ],
+  "limitations": "No credentials/cookie values or filled-form images retained. Cleanup browser-close stalled; owned process tree stopped after report completion."
+}

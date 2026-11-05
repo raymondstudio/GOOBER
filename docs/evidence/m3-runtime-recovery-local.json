@@ -1,0 +1,44 @@
+{
+  "token": "f389a426b411",
+  "database": "goober_test_f389a426b411",
+  "modes": "test/fixture only",
+  "proxyFaultsOnly": true,
+  "checks": [
+    {
+      "check": "healthy actual PostgreSQL auth schema and Redis preflight",
+      "result": "PASS"
+    },
+    {
+      "check": "healthy signup persists user/session and real catalog",
+      "result": "PASS"
+    },
+    {
+      "check": "database outage rejects signup/login/catalog safely without account/session success",
+      "result": "PASS"
+    },
+    {
+      "check": "database restoration recovers signup/login/session/catalog with DB limiter and origin checks retained",
+      "result": "PASS"
+    },
+    {
+      "check": "Redis outage fails readiness while SQL catalog and durable funding inbox survive",
+      "result": "PASS"
+    },
+    {
+      "check": "Redis outage preserves reserved order and durable outbox before dispatch",
+      "result": "PASS"
+    },
+    {
+      "check": "persistent worker recovers inbox/outbox once after repeated Redis interruption",
+      "result": "PASS",
+      "capture": 1,
+      "dispatch": 1
+    },
+    {
+      "check": "captured HTTP/server/worker diagnostics contain no tested secrets or database internals",
+      "result": "PASS"
+    }
+  ],
+  "result": "implemented-local",
+  "limitation": "Transport outage through owned proxies; native services/data preserved. No external provider or production claim."
+}

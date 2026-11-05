@@ -75,3 +75,15 @@ pnpm dev
 ```
 
 Open http://127.0.0.1:3010. Ctrl+C stops the application launched in that terminal; pnpm dev:infra:stop stops native infrastructure without deleting data. Close the terminal to discard its temporary environment overrides. The verification runner independently uses3005/3006 and clean checkout3007/3008, so it does not address or stop another application's3000 listener.
+
+## M3 dependency checks and recovery
+
+From the repository in PowerShell, start the selected native path with pnpm dev:infra, then run pnpm dev:check. The latter checks actual PostgreSQL SQL/auth storage and Redis PING using the same environment-loading precedence as the app. pnpm dev now runs this preflight before launching any app process. It fails with fixed setup guidance when a dependency is down; a listening HTTP server alone is not readiness. Driver deadlines are finite10s to accommodate measured cold laptop startup. No rate-limit/security/persistence fallback is enabled.
+
+For initial or changed database setup, run pnpm db:generate, pnpm db:migrate, pnpm db:permissions, pnpm db:seed and pnpm auth:schema:check. These passed in M3; repeating migrations on each page reload is unnecessary. Never overwrite .env to fix a stopped service. Use the existing alternate3010/3011 environment block above if needed, then pnpm dev. Do not start a second Next server using the same build directory while one is already running.
+
+Check /api/v1/health/ready through the web origin for current database/queue readiness. Auth outages return a safe retryable503 without session cookies; API connection failures return a safe service-unavailable response. Ordinary user errors and origin protection remain enforced. For a dependency that stops during development, restart that same selected infrastructure path, wait for dev:check to pass and retry the read or sign-in explicitly. Economic mutations are never automatically resubmitted by the UI.
+
+Ctrl+C stops the app group launched in that terminal. pnpm dev:infra:stop stops native services without deleting data; run dev:infra again before the next app launch. Docker remains blocked by the documented incomplete installation. Repair must restore the missing vendor resources using supported Docker installation tooling; no repair/reset or data transfer was performed.
+
+Isolated runtime-failure verification uses owned loopback proxies and fresh test databases, so it never stops these native services. See scripts/verify-runtime-recovery.mjs and M3 verification evidence for actual execution status.

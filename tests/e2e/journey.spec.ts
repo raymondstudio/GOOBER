@@ -11,6 +11,14 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { await prisma.$disconnect(); });
 test('customer keyboard journey persists funding, order, reveal, support and operations on both viewports', async ({ page, browser }, testInfo) => {
+  const started = Date.now();
+  page.on('response', response => {
+    const url = new URL(response.url());
+    if (url.origin === new URL(process.env.TRUSTED_ORIGIN!).origin && /^\/api\/(auth\/(sign-up\/email|sign-in\/email|sign-out)|v1\/me)$/.test(url.pathname)) {
+      // Fixed route/status/timing only: no input, response body or cookie values.
+      console.info(`Journey transport: ${response.request().method()} ${url.pathname} ${response.status()} at ${Date.now() - started}ms`);
+    }
+  });
   await testInfo.attach('browser-runtime.json', { body: Buffer.from(JSON.stringify({ version: browser.version(), channel: testInfo.project.use.channel ?? 'bundled-chromium', viewport: page.viewportSize() })), contentType: 'application/json' });
   console.info(`Browser runtime: ${testInfo.project.use.channel ?? 'bundled-chromium'} ${browser.version()}; viewport ${page.viewportSize()?.width}x${page.viewportSize()?.height}`);
   const email = `browser-${randomUUID()}@example.invalid`;

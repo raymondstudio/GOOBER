@@ -41,3 +41,17 @@ Docker Desktop is installed but its own startup log and file checks show missing
 ## D012 — M2 presentation-only currency correction
 
 Actual browser screenshots and four failing display regressions reproduced the malformed naira prefix (three mojibake characters). Replaced only that prefix with escaped Unicode U20A6. BigInt arithmetic, accepted money amounts, JSON transport, quote versions and financial database records remain unchanged. Zero, grouped positive, beyond-safe-integer and signed display cases are tested.
+
+## D013 — M3 dependency readiness before development startup
+
+The owner supplied a historical P1001 auth/rate-limit log. Fresh Windows probes independently found PostgreSQL and Redis stopped/unreachable; HTTP listening alone had never established dependency health. Native startup plus generation, migrations, permissions, normal fixture seed and auth-schema checks passed. Keep one native infrastructure path while Desktop resources are missing; the bounded Ubuntu probe did not establish whether a standalone Engine is installed.
+
+The aggregate dev command now performs actual SQL/auth-storage and Redis checks. Its initial two-second deadline rejected a measured healthy cold connection taking5,041ms; finite ten-second deadlines passed. Preserve database-backed rate limiting and sessions. A stopped dependency must fail clearly at startup and safely at the auth/API boundary, never become in-memory persistence or fake catalog/account success. Better Auth diagnostic callbacks emit fixed messages only.
+
+## D014 — M3 storefront composition and skill constraints
+
+Preserve the existing GOOBER mark, forest/navy/warm palette and serif/sans roles. Replace repeated promotional panels and decorative product strips with a literal offer, useful catalog context, real account/browse actions, terms and explicit read retries. Use native CSS and truthful fixture disclosures; no new runtime dependency, Apple assets/fonts, unsupported entitlement, badge or metric. Skill provenance, exact revisions and the owner-supplied community-skill permission are recorded in SKILLS.md. Official HIG remains design guidance, not an endorsement.
+
+## D015 — M3 resource-aware verification sequencing
+
+The first attempt passed build/lint/types/81units and41of43 controlled tests, but a cold process test exceeded30s and12-way funding hit the existing10s transaction-acquisition budget. Keep all application transaction limits, test deadlines, race concurrency and financial assertions unchanged. Run39 non-HTTP checks before build/idle API/web, then4G1 boundary checks,6HTTP acceptance checks,15browser cases and restore. QA independently confirmed that these39 checks need no HTTP process and no autonomous worker. The fresh rerun passed all39, including both prior failures. This is local observed evidence, not a production latency guarantee.

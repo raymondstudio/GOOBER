@@ -17,6 +17,11 @@ for (const width of [360, 390, 768, 1280]) {
     expect(await firstAction.evaluate(element => getComputedStyle(element).transitionDuration), 'Reduced motion removes action transitions').toBe('0s');
     await expect(page.getByRole('main')).toHaveCount(1);
     await expect(page.locator('h1')).toHaveCount(1);
+    await expect(page.getByRole('link', { name: 'Create account', exact: true })).toHaveAttribute('href', '/sign-in?action=create');
+    await expect(page.getByRole('link', { name: 'Sign in', exact: true }).first()).toHaveAttribute('href', '/sign-in');
+    expect(await firstAction.evaluate(element => {
+      const rect = element.getBoundingClientRect(); return rect.top >= 0 && rect.bottom <= innerHeight;
+    }), 'The first screen offers a real path to browse').toBe(true);
     await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Store', exact: true })).toHaveAttribute('aria-current', 'page');
     expect(await page.evaluate(() => scrollY), 'Background resource completion must not steal focus or scroll').toBe(0);
     await overflow();
@@ -29,8 +34,13 @@ for (const width of [360, 390, 768, 1280]) {
     await page.keyboard.press('Tab');
     await expect(page.getByRole('combobox', { name: 'Category', exact: true })).toBeFocused();
     await overflow();
-    mkdirSync('.local/m2/qa', { recursive: true });
-    await page.screenshot({ path: `.local/m2/qa/storefront-${width}.png`, fullPage: true });
+    mkdirSync('.local/m3/qa', { recursive: true });
+    await page.screenshot({ path: `.local/m3/qa/storefront-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `.local/m3/qa/storefront-viewport-${width}.png` });
+
+    await page.getByRole('link', { name: 'Create account', exact: true }).click();
+    await expect(page.getByLabel('Your name')).toBeEnabled();
+    await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('autocomplete', 'new-password');
 
     await page.goto('/sign-in');
     await expect(page.getByLabel('Email address')).toBeEnabled();
@@ -51,7 +61,7 @@ for (const width of [360, 390, 768, 1280]) {
     await page.getByRole('button', { name: 'Sign in', exact: true }).last().click();
     expect(await page.getByLabel('Email address').evaluate(element => (element as HTMLInputElement).validity.valueMissing)).toBe(true);
     await overflow();
-    await page.screenshot({ path: `.local/m2/qa/sign-in-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `.local/m3/qa/sign-in-${width}.png`, fullPage: true });
 
     for (const route of ['/wallet', '/orders', '/support', '/operations']) {
       await page.goto(route);
@@ -74,3 +84,47 @@ for (const width of [360, 390, 768, 1280]) {
     }
   });
 }
+
+test('catalog transport failure is calm and a bounded retry fetches actual persisted products', async ({ page }) => {
+  let reads = 0;
+  let release!: () => void;
+  const retryGate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/v1/products', async route => {
+    reads++;
+    if (reads === 1) { await route.abort('connectionfailed'); return; }
+    await retryGate;
+    await route.continue();
+  });
+  try {
+    await page.goto('/');
+    const catalog = page.locator('#catalog');
+    await expect(catalog.getByRole('heading', { name: 'The store is temporarily unavailable.', exact: true })).toBeVisible();
+    await expect(catalog.getByRole('link', { name: /account|sign in/i })).toHaveCount(0);
+    await expect(catalog.getByRole('heading', { name: /No products/ })).toHaveCount(0);
+    await expect(catalog).not.toContainText(/Prisma|P1001|54329|RateLimit|SELECT/);
+    expect(await page.evaluate(() => scrollY), 'A passive failure must not move the page').toBe(0);
+    await catalog.getByRole('button', { name: 'Retry catalog', exact: true }).click();
+    await expect(catalog.getByRole('button', { name: 'Retrying catalog…', exact: true })).toBeDisabled();
+    expect(reads).toBe(2);
+    release();
+    await expect(catalog.getByRole('heading', { name: 'Studio toolkit', exact: true })).toBeVisible();
+    await expect(catalog.getByRole('heading', { name: 'The store is temporarily unavailable.', exact: true })).toHaveCount(0);
+    expect(reads).toBe(2);
+  } finally { release(); }
+});
+
+test('product transport failure preserves a real retry and back-to-store path', async ({ page }) => {
+  let reads = 0;
+  await page.route('**/api/v1/products/fixture-studio', async route => {
+    reads++;
+    if (reads === 1) { await route.abort('connectionfailed'); return; }
+    await route.continue();
+  });
+  await page.goto('/products/fixture-studio');
+  await expect(page.getByRole('heading', { name: 'This product could not be loaded.', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Back to the store/ })).toHaveAttribute('href', '/');
+  await page.getByRole('button', { name: 'Retry product', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Studio toolkit', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Get a quote', exact: true })).toBeEnabled();
+  expect(reads).toBe(2);
+});
