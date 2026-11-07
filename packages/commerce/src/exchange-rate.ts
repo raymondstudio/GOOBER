@@ -102,7 +102,12 @@ export async function getExchangeRate(options?: {
   const apiKey = options?.apiKey ?? process.env.EXCHANGE_RATE_API_KEY;
   const allowFallback = options?.allowFallback ?? true;
 
-  if (!options?.forceRefresh && memoryCache && Date.now() - memoryCache.cachedAt < 5_000) {
+  if (
+    !options?.forceRefresh &&
+    memoryCache &&
+    Date.now() - memoryCache.cachedAt < 5_000 &&
+    (memoryCache.snapshot.isManualOverride || Date.now() - memoryCache.snapshot.updatedAt.getTime() <= maxAgeMs)
+  ) {
     return memoryCache.snapshot;
   }
 

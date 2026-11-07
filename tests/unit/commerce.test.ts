@@ -43,6 +43,14 @@ describe('exact minor units and protected deliveries', () => {
     expect(dual.payableMinor).toBe(1725000n);
     expect(dual.prices.USD).toEqual({ amountMinor: '1150', currency: 'USD', formatted: '$11.50' });
     expect(dual.prices.NGN).toEqual({ amountMinor: '1725000', currency: 'NGN', formatted: '\u20a617,250.00' });
+    // Edge-case minor-unit rounding (half-up: (minor * 15 + 50) / 100)
+    expect(applyMarkup15(0n, 'USD').sellingMinor).toBe(0n);
+    expect(applyMarkup15(1n, 'USD')).toMatchObject({ markupMinor: 0n, sellingMinor: 1n });
+    expect(applyMarkup15(3n, 'USD')).toMatchObject({ markupMinor: 0n, sellingMinor: 3n });
+    expect(applyMarkup15(4n, 'USD')).toMatchObject({ markupMinor: 1n, sellingMinor: 5n });
+    expect(applyMarkup15(50n, 'USD')).toMatchObject({ markupMinor: 8n, sellingMinor: 58n });
+    expect(applyMarkup15(70n, 'USD')).toMatchObject({ markupMinor: 11n, sellingMinor: 81n });
+    expect(convertSellingMinor(1150n, 'USD', 'NGN', '1543.789123').payableMinor).toBe(1775357n);
     expect(() => parseExchangeRate('0')).toThrow();
     expect(() => parseExchangeRate('-1500')).toThrow();
   });

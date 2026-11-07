@@ -2,7 +2,20 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '@goober/db';
 import type { Currency, FundingDto } from '@goober/contracts';
 import { PaystackAdapter, ProviderError, validatePaystackMinimum, type AdapterConfig } from '@goober/providers';
-import { applyFundingEvent, CommerceError } from './index.js';
+import { CommerceError } from './errors.js';
+
+export interface FundingEventInput {
+  eventId: string;
+  type: 'payment.succeeded' | 'payment.reversed' | 'payment.failed';
+  environment: 'test';
+  reference: string;
+  amountMinor: string;
+  currency: Currency;
+  provider?: 'fixture' | 'paystack';
+  providerAccount?: 'fixture' | 'sandbox';
+  processorTransactionId?: string;
+  inboxId?: string;
+}
 
 export interface CreateFundingOptions {
   currency?: Currency;
@@ -27,6 +40,7 @@ export function defaultPaystackAdapter(): PaystackAdapter {
   };
   return new PaystackAdapter(cfg);
 }
+
 
 export async function initializePaystackFunding(
   ownerId: string,
@@ -99,7 +113,11 @@ export async function initializePaystackFunding(
 }
 
 
-export async function verifyPaystackPayment(reference: string, options?: { customAdapter?: PaystackAdapter }): Promise<FundingDto> {
+export async function verifyPaystackPaymentInternal(
+  reference: string,
+  applyEvent: (event: FundingEventInput) => Promise<void>,
+  options?: { customAdapter?: PaystackAdapter },
+): Promise<FundingDto> {
   const environment = 'test';
   const intent = await prisma.paymentIntent.findUnique({ where: { reference } });
   if (!intent || intent.environment !== environment || intent.provider !== 'paystack') {
@@ -126,7 +144,7 @@ export async function verifyPaystackPayment(reference: string, options?: { custo
     return { id: failed.id, reference: failed.reference, amountMinor: failed.amountMinor.toString(), currency, mode: 'paystack', status: failed.status, provider: 'paystack', orderId: failed.orderId };
   }
   if (observed.status === 'success' || observed.status === 'reversed') {
-    await applyFundingEvent({
+    await applyEvent({
       eventId: `paystack-${observed.status}:${observed.transactionId}`,
       type: observed.status === 'success' ? 'payment.succeeded' : 'payment.reversed',
       environment: 'test',

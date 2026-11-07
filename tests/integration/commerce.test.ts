@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { prisma } from '@goober/db';
-import { applyFundingEvent, clearExchangeRateCache, CommerceError, completeOrder, createFundingIntent, createOrder, createQuote, getExchangeRate, getWallet, open, refundOrder, resolveReview, setManualExchangeRate, verifyPaystackPayment, type FundingEvent } from '@goober/commerce';
-import { PaystackAdapter } from '@goober/providers';
-import { processInbox } from '../../apps/worker/src/processor.js';
+import { applyFundingEvent, clearExchangeRateCache, CommerceError, completeOrder, createFundingIntent, createOrder, createQuote, getExchangeRate, getWallet, open, refundOrder, resolveReview, setManualExchangeRate, syncSupplierCatalog, verifyPaystackPayment, type FundingEvent } from '@goober/commerce';
+import { PaystackAdapter, parseGramlCatalog, parsePaiCatalog, losslessBody } from '@goober/providers';
+import { processInbox, processOutbox } from '../../apps/worker/src/processor.js';
 
 const run = randomUUID();
 let counter = 0;
@@ -311,5 +311,56 @@ describe('commerce financial invariants on actual PostgreSQL runtime role', () =
     expect(await getWallet(owner, 'USD')).toMatchObject({ availableMinor: '5000', reservedMinor: '0', currency: 'USD' });
     expect(await getWallet(owner, 'NGN')).toMatchObject({ availableMinor: '2000000', reservedMinor: '0', currency: 'NGN' });
     await setManualExchangeRate(admin, '1500.00', 'Restore default test rate'); clearExchangeRateCache();
+  });
+
+  it('prevents duplicate fulfillment across 10 concurrent buyers of a single stock=1 inventory item and restores stock on failure', async () => {
+    const scarce = await product({ stock: 1, retailMinor: 10000n, supplierMinor: 50n, supplierCurrency: 'USD' });
+    const buyers = await Promise.all(Array.from({ length: 10 }, () => customer()));
+    for (const b of buyers) await funding(b, '50000');
+    const quotes = await Promise.all(buyers.map(b => createQuote(b, scarce.id)));
+    const outcomes = await Promise.allSettled(quotes.map((q, idx) => createOrder(buyers[idx]!, q.id, randomUUID())));
+    const succeeded = outcomes.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof createOrder>>> => r.status === 'fulfilled');
+    const rejected = outcomes.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(succeeded).toHaveLength(1); expect(rejected).toHaveLength(9);
+    for (const r of rejected) expect(r.reason).toMatchObject({ code: 'OUT_OF_STOCK' });
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: scarce.id } })).stock).toBe(0);
+    const winnerOrder = succeeded[0]!.value;
+    const outbox = await prisma.outbox.findFirstOrThrow({ where: { aggregateId: winnerOrder.id, eventType: 'ORDER_FULFILL' } });
+    await processOutbox(outbox.id);
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: winnerOrder.id } })).fulfillment).toBe('DELIVERED');
+    expect(await prisma.delivery.count({ where: { orderId: winnerOrder.id } })).toBe(1);
+
+    const failOffer = await product({ stock: 1, retailMinor: 10000n, supplierMinor: 50n, supplierCurrency: 'USD' });
+    const failQuote = await createQuote(buyers[1]!, failOffer.id);
+    const failOrder = await createOrder(buyers[1]!, failQuote.id, randomUUID());
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: failOffer.id } })).stock).toBe(0);
+    await completeOrder(failOrder.id, { status: 'failed' }, randomUUID());
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: failOffer.id } })).stock).toBe(1);
+  });
+
+  it('synchronizes supplier catalogs with exact 15% markup, rejects uncredited/reused payment references, and enforces cached-rate expiration', async () => {
+    const paiCatalog = parsePaiCatalog(losslessBody('{"currency":"USD","products":[{"service_id":"sync-pai-1","name":"Synced PAI Offer","input_type":"quantity","stock":25,"unit_price":10.00,"price_per":1,"min_quantity":1,"max_quantity":1}]}'));
+    const gramlCatalog = parseGramlCatalog(losslessBody('{"status":"success","data":[{"id":"sync-graml-1","name":"Synced Graml Offer","price":10000.00,"stock":15}]}'));
+    expect((await syncSupplierCatalog('PAI', paiCatalog)).syncedCount).toBe(1);
+    expect((await syncSupplierCatalog('GRAML', gramlCatalog)).syncedCount).toBe(1);
+    expect(await prisma.product.findUniqueOrThrow({ where: { id: 'pai-sync-pai-1' } })).toMatchObject({ supplierMinor: 1000n, retailMinor: 1150n, supplierCurrency: 'USD', pricingPolicy: 'markup-15', approved: false, published: false, stock: 25 });
+    expect(await prisma.product.findUniqueOrThrow({ where: { id: 'graml-sync-graml-1' } })).toMatchObject({ supplierMinor: 1000000n, retailMinor: 1150000n, supplierCurrency: 'NGN', pricingPolicy: 'markup-15', approved: false, published: false, stock: 15 });
+
+    const owner = await customer(); const offer = await product();
+    const uncreditedIntent = await createFundingIntent(owner, '450000');
+    await funding(owner, '900000');
+    const q1 = await createQuote(owner, offer.id);
+    await expect(createOrder(owner, q1.id, randomUUID(), { paymentReference: uncreditedIntent.reference })).rejects.toMatchObject({ code: 'PAYMENT_MISMATCH' });
+    await applyFundingEvent({ eventId: randomUUID(), type: 'payment.succeeded', environment: 'test', reference: uncreditedIntent.reference, amountMinor: '450000', currency: 'NGN' });
+    const firstOrder = await createOrder(owner, q1.id, randomUUID(), { paymentReference: uncreditedIntent.reference });
+    expect(firstOrder.paymentReference).toBe(uncreditedIntent.reference);
+    const q2 = await createQuote(owner, offer.id);
+    await expect(createOrder(owner, q2.id, randomUUID(), { paymentReference: uncreditedIntent.reference })).rejects.toMatchObject({ code: 'PAYMENT_MISMATCH' });
+
+    await prisma.exchangeRate.update({ where: { environment_baseCurrency_quoteCurrency: { environment: 'test', baseCurrency: 'USD', quoteCurrency: 'NGN' } }, data: { isManualOverride: false, fetchedAt: new Date(Date.now() - 120_000) } });
+    clearExchangeRateCache();
+    await expect(getExchangeRate({ maxAgeMs: 1000 })).rejects.toMatchObject({ code: 'EXCHANGE_RATE_UNAVAILABLE' });
+    await prisma.exchangeRate.update({ where: { environment_baseCurrency_quoteCurrency: { environment: 'test', baseCurrency: 'USD', quoteCurrency: 'NGN' } }, data: { rate: '1500.00', source: 'seeded-default', isManualOverride: false, fetchedAt: new Date() } });
+    clearExchangeRateCache();
   });
 });

@@ -2,10 +2,13 @@ import { createHash, randomUUID } from 'node:crypto';
 import { prisma, Prisma, FIXTURE_PROVIDER_CONTRACT_VERSION, type Order, type Product, type Wallet } from '@goober/db';
 import { type Currency, type FundingDto, type OrderDto, type QuoteDto, type WalletDto } from '@goober/contracts';
 import { seal } from './encryption.js';
+import { CommerceError } from './errors.js';
 import { parseMinor } from './money.js';
 import { calculateDualCurrencyPricing } from './pricing.js';
 import { getExchangeRate, type ExchangeRateSnapshot } from './exchange-rate.js';
+import { initializePaystackFunding, verifyPaystackPaymentInternal, type CreateFundingOptions } from './paystack-funding.js';
 
+export { CommerceError } from './errors.js';
 export { seal, open } from './encryption.js';
 export type { EncryptionContext, SealedPayload } from './encryption.js';
 export { parseMinor, convertMinorCeil, MAX_MINOR } from './money.js';
@@ -13,10 +16,9 @@ export { applyMarkup15, calculateDualCurrencyPricing, convertSellingMinor, MARKU
 export type { MarkupCalculation, DualPricingResult } from './pricing.js';
 export { clearExchangeRateCache, exchangeRateDto, getExchangeRate, setManualExchangeRate } from './exchange-rate.js';
 export type { ExchangeRateSnapshot } from './exchange-rate.js';
-
-export class CommerceError extends Error {
-  constructor(public code: string, message: string, public status = 400) { super(message); this.name = 'CommerceError'; }
-}
+export { syncSupplierCatalog } from './catalog-sync.js';
+export type { CatalogSyncResult } from './catalog-sync.js';
+export type { CreateFundingOptions } from './paystack-funding.js';
 export type Transaction = Prisma.TransactionClient;
 export interface FundingEvent {
   eventId: string;
@@ -68,7 +70,7 @@ export async function withSerializable<T>(work: (tx: Transaction) => Promise<T>)
   for (let attempt = 0; ; attempt++) {
     try { return await prisma.$transaction(work, { isolationLevel: 'Serializable', maxWait: 10_000, timeout: 20_000 }); }
     catch (error) {
-      if (!retryable(error) || attempt >= 7) throw error;
+      if (!retryable(error) || attempt >= 12) throw error;
       await new Promise(resolve => setTimeout(resolve, Math.min(5 * 2 ** attempt, 120) + Math.floor(Math.random() * 10)));
     }
   }
@@ -259,13 +261,16 @@ export async function createOrder(
       throw new CommerceError('QUOTE_CHANGED', 'Product terms changed; accept a fresh quote', 409);
     }
     if (options?.paymentReference) {
+      await tx.$queryRaw`SELECT id FROM "PaymentIntent" WHERE reference=${options.paymentReference} FOR UPDATE`;
       const intent = await tx.paymentIntent.findUnique({ where: { reference: options.paymentReference } });
-      if (!intent || intent.ownerId !== ownerId || intent.environment !== environment || intent.currency !== quoteCurrency || intent.amountMinor !== quote.retailMinor) {
-        throw new CommerceError('PAYMENT_MISMATCH', 'Payment reference currency or amount does not match the quote', 409);
+      const existingOrder = await tx.order.findFirst({ where: { paymentReference: options.paymentReference }, select: { id: true } });
+      if (!intent || intent.ownerId !== ownerId || intent.environment !== environment || intent.currency !== quoteCurrency || intent.amountMinor !== quote.retailMinor || intent.status !== 'CREDITED' || intent.creditedMinor !== quote.retailMinor || existingOrder) {
+        throw new CommerceError('PAYMENT_MISMATCH', 'Payment reference currency, credited status, or amount does not match the quote', 409);
       }
     }
     if (wallet.frozen) throw new CommerceError('WALLET_FROZEN', 'Purchasing is paused while a funding issue is reviewed', 409);
     if (wallet.availableMinor < quote.retailMinor) throw new CommerceError('INSUFFICIENT_FUNDS', 'Add enough purchasing credit in the selected currency before checkout', 409);
+    await tx.product.update({ where: { id: product.id }, data: { stock: { decrement: 1 } } });
     const id = randomUUID();
     const order = await tx.order.create({
       data: {
@@ -305,13 +310,12 @@ export async function createOrder(
 }
 
 
-export async function createFundingIntent(ownerId: string, amountMinor: string, options?: import('./paystack-funding.js').CreateFundingOptions): Promise<FundingDto> {
+export async function createFundingIntent(ownerId: string, amountMinor: string, options?: CreateFundingOptions): Promise<FundingDto> {
   assertLocal();
   const value = amount(amountMinor);
   const currency: Currency = options?.currency === 'USD' ? 'USD' : 'NGN';
   const provider = options?.provider ?? (process.env.PAYMENT_MODE === 'paystack' ? 'paystack' : 'fixture');
   if (provider === 'paystack') {
-    const { initializePaystackFunding } = await import('./paystack-funding.js');
     return initializePaystackFunding(ownerId, value, currency, options);
   }
   if (value < 100n || value > 100_000_000n) throw new CommerceError('INVALID_AMOUNT', 'Test funding must be between 100 and 100000000 minor units');
@@ -319,8 +323,10 @@ export async function createFundingIntent(ownerId: string, amountMinor: string, 
   return { id: intent.id, reference: intent.reference, amountMinor: intent.amountMinor.toString(), currency, mode: 'fixture', status: intent.status };
 }
 
-export { verifyPaystackPayment } from './paystack-funding.js';
-export type { CreateFundingOptions } from './paystack-funding.js';
+export async function verifyPaystackPayment(reference: string, options?: { customAdapter?: import('@goober/providers').PaystackAdapter }): Promise<FundingDto> {
+  assertLocal();
+  return verifyPaystackPaymentInternal(reference, applyFundingEvent, options);
+}
 
 export async function applyFundingEvent(event: FundingEvent): Promise<void> {
   assertLocal();
@@ -408,6 +414,7 @@ async function finish(tx: Transaction, wallet: Wallet, order: Awaited<ReturnType
     if (remaining > 0n) {
       await journal(tx, `release:${order.id}`, orderCurrency, [{ accountId: reserved.id, direction: 'DEBIT', amountMinor: remaining }, { accountId: available.id, direction: 'CREDIT', amountMinor: remaining }], { kind: 'confirmed-failure-release', orderId: order.id, currency: orderCurrency });
       await tx.wallet.update({ where: { id: wallet.id }, data: { availableMinor: { increment: remaining }, reservedMinor: { decrement: remaining } } });
+      await tx.product.update({ where: { id: order.productId }, data: { stock: { increment: 1 } } });
     }
     return tx.order.update({ where: { id: order.id }, data: { fulfillment: 'FAILED', moneyStatus: 'RELEASED', releasedMinor: { increment: remaining }, reviewReason: null, version: { increment: 1 } }, include: { product: true } });
   }

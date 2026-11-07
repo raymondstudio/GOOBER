@@ -132,3 +132,29 @@ test('product transport failure preserves a real retry and back-to-store path', 
   await expect(page.getByRole('button', { name: 'Get a quote', exact: true })).toBeEnabled();
   expect(reads).toBe(2);
 });
+
+test('currency selector and shopping cart persist across reloads and switch NGN and USD prices accurately', async ({ page }) => {
+  await page.goto('/products/fixture-studio');
+  await expect(page.getByTestId('product-display-price')).toHaveText('\u20a61,725.00');
+  await page.getByTestId('currency-usd').click();
+  await expect(page.getByTestId('product-display-price')).toHaveText('$1.15');
+  await page.getByRole('button', { name: 'Add to cart', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Added to cart', exact: true })).toBeVisible();
+
+  await page.goto('/cart');
+  await expect(page.getByTestId('cart-price-fixture-studio')).toContainText('$1.15 (USD)');
+  await expect(page.getByTestId('cart-total')).toHaveText('$1.15');
+
+  // Reload page and verify both cart items and selected currency (USD) persisted
+  await page.reload();
+  await expect(page.getByTestId('cart-price-fixture-studio')).toContainText('$1.15 (USD)');
+  await expect(page.getByTestId('cart-total')).toHaveText('$1.15');
+
+  // Switch back to NGN on cart page and verify total recalculates to ₦1,725.00
+  await page.getByTestId('currency-ngn').click();
+  await expect(page.getByTestId('cart-price-fixture-studio')).toContainText('\u20a61,725.00 (NGN)');
+  await expect(page.getByTestId('cart-total')).toHaveText('\u20a61,725.00');
+  await page.getByRole('button', { name: 'Clear cart', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Your cart is empty.', exact: true })).toBeVisible();
+});
+
