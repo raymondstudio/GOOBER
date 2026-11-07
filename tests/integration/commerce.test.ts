@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { prisma } from '@goober/db';
-import { applyFundingEvent, CommerceError, completeOrder, createFundingIntent, createOrder, createQuote, getWallet, open, refundOrder, resolveReview, type FundingEvent } from '@goober/commerce';
+import { applyFundingEvent, clearExchangeRateCache, CommerceError, completeOrder, createFundingIntent, createOrder, createQuote, getExchangeRate, getWallet, open, refundOrder, resolveReview, setManualExchangeRate, verifyPaystackPayment, type FundingEvent } from '@goober/commerce';
+import { PaystackAdapter } from '@goober/providers';
 import { processInbox } from '../../apps/worker/src/processor.js';
 
 const run = randomUUID();
@@ -245,5 +246,70 @@ describe('commerce financial invariants on actual PostgreSQL runtime role', () =
     const resolved = await resolveReview(admin, order.id, { operationId: randomUUID(), version: disputed.version, resolution: 'delivered', reason: 'Synthetic verified original delivered outcome confirmed' });
     expect(resolved).toMatchObject({ fulfillmentState: 'DELIVERED', moneyState: 'CAPTURED', reviewReason: null });
     expect(await prisma.review.count({ where: { orderId: order.id, status: 'OPEN' } })).toBe(0);
+  });
+
+  it('initializes and verifies Paystack NGN/USD payments, rejects currency/amount tampering, and deduplicates webhook races', async () => {
+    const owner = await customer();
+    await expect(createFundingIntent(owner, '5000', { currency: 'NGN', provider: 'paystack' })).rejects.toMatchObject({ code: 'MINIMUM_AMOUNT_NGN' });
+    await expect(createFundingIntent(owner, '50', { currency: 'USD', provider: 'paystack' })).rejects.toMatchObject({ code: 'MINIMUM_AMOUNT_USD' });
+    const mockPaystack = (currency: 'NGN' | 'USD', amountMinor: number, tamperAmount?: number, tamperCurrency?: string) => new PaystackAdapter({
+      appEnvironment: 'test', environment: 'test', accountId: 'sandbox', mode: 'sandbox', apiKey: 'sk_test_synthetic',
+      budget: { acquire: async () => undefined },
+      fetch: (async (url: string, init?: RequestInit) => {
+        if (String(url).endsWith('/transaction/initialize')) {
+          const b = JSON.parse(String(init?.body)); expect(b).toMatchObject({ amount: String(amountMinor), currency });
+          return new Response(JSON.stringify({ status: true, data: { reference: b.reference, authorization_url: 'https://checkout.paystack.com/test', access_code: 'code-1' } }));
+        }
+        const ref = String(url).split('/').pop()!;
+        return new Response(JSON.stringify({ status: true, data: { id: 8801, domain: 'test', status: 'success', reference: ref, amount: tamperAmount ?? amountMinor, currency: tamperCurrency ?? currency } }));
+      }) as typeof fetch,
+    });
+    const ngnIntent = await createFundingIntent(owner, '2000000', { currency: 'NGN', provider: 'paystack', customAdapter: mockPaystack('NGN', 2000000) });
+    expect(ngnIntent).toMatchObject({ currency: 'NGN', amountMinor: '2000000', mode: 'paystack', authorizationUrl: 'https://checkout.paystack.com/test' });
+    await expect(verifyPaystackPayment(ngnIntent.reference, { customAdapter: mockPaystack('NGN', 2000000, 2000001) })).rejects.toMatchObject({ code: 'PAYMENT_MISMATCH' });
+    await expect(verifyPaystackPayment(ngnIntent.reference, { customAdapter: mockPaystack('NGN', 2000000, undefined, 'USD') })).rejects.toMatchObject({ code: 'PAYMENT_MISMATCH' });
+    await Promise.all([
+      verifyPaystackPayment(ngnIntent.reference, { customAdapter: mockPaystack('NGN', 2000000) }),
+      applyFundingEvent({ eventId: `wh:${randomUUID()}`, type: 'payment.succeeded', environment: 'test', reference: ngnIntent.reference, amountMinor: '2000000', currency: 'NGN', provider: 'paystack', providerAccount: 'sandbox' }),
+    ]);
+    expect(await getWallet(owner, 'NGN')).toMatchObject({ availableMinor: '2000000', currency: 'NGN' });
+    const usdIntent = await createFundingIntent(owner, '5000', { currency: 'USD', provider: 'paystack', customAdapter: mockPaystack('USD', 5000) });
+    await verifyPaystackPayment(usdIntent.reference, { customAdapter: mockPaystack('USD', 5000) });
+    expect(await getWallet(owner, 'USD')).toMatchObject({ availableMinor: '5000', currency: 'USD' });
+  });
+
+  it('persists dual-currency 15% markup, exchange-rate snapshots, historical order price integrity, failed rate provider fallback, and original-currency refunds', async () => {
+    const owner = await customer(); const admin = await customer(); await prisma.user.update({ where: { id: admin }, data: { role: 'ADMIN' } });
+    await setManualExchangeRate(admin, '1500.00', 'Initial test rate snapshot');
+    const paiOffer = await product({ supplierMinor: 1000n, supplierCurrency: 'USD', retailMinor: 1150n, pricingPolicy: 'markup-15' });
+    const ngnFund = await createFundingIntent(owner, '2000000', { currency: 'NGN' });
+    await applyFundingEvent({ eventId: randomUUID(), type: 'payment.succeeded', environment: 'test', reference: ngnFund.reference, amountMinor: '2000000', currency: 'NGN' });
+    const usdFund = await createFundingIntent(owner, '5000', { currency: 'USD' });
+    await applyFundingEvent({ eventId: randomUUID(), type: 'payment.succeeded', environment: 'test', reference: usdFund.reference, amountMinor: '5000', currency: 'USD' });
+
+    const usdQuote = await createQuote(owner, paiOffer.id, 1, 'USD');
+    expect(usdQuote).toMatchObject({ currency: 'USD', supplierMinor: '1000', markupMinor: '150', sellingMinor: '1150', priceMinor: '1150', exchangeRate: '1' });
+    const ngnQuote = await createQuote(owner, paiOffer.id, 1, 'NGN');
+    expect(ngnQuote).toMatchObject({ currency: 'NGN', supplierMinor: '1000', markupMinor: '150', sellingMinor: '1150', priceMinor: '1725000', exchangeRate: '1500.00' });
+
+    await expect(createOrder(owner, usdQuote.id, randomUUID(), { currency: 'NGN' })).rejects.toMatchObject({ code: 'CURRENCY_MISMATCH' });
+    const usdOrder = await createOrder(owner, usdQuote.id, randomUUID(), { currency: 'USD' });
+    const ngnOrder = await createOrder(owner, ngnQuote.id, randomUUID(), { currency: 'NGN' });
+
+    await setManualExchangeRate(admin, '2000.00', 'Rate change after order placement');
+    const savedNgnOrder = await prisma.order.findUniqueOrThrow({ where: { id: ngnOrder.id } });
+    expect(savedNgnOrder.payableMinor).toBe(1725000n); expect(savedNgnOrder.exchangeRate).toBe('1500.00');
+    await expect(prisma.$executeRaw`UPDATE "Order" SET "payableMinor"=1 WHERE id=${ngnOrder.id}`).rejects.toBeTruthy();
+
+    const fallbackSnap = await getExchangeRate({ forceRefresh: true, customFetch: (async () => new Response('error', { status: 503 })) as typeof fetch, allowFallback: true });
+    expect(fallbackSnap.rate).toBe('2000.00');
+    await expect(getExchangeRate({ forceRefresh: true, customFetch: (async () => new Response('error', { status: 503 })) as typeof fetch, allowFallback: false })).rejects.toMatchObject({ code: 'EXCHANGE_RATE_UNAVAILABLE' });
+
+    await completeOrder(usdOrder.id, { status: 'delivered', products: ['USD-DELIVERY'] }, randomUUID());
+    await completeOrder(ngnOrder.id, { status: 'delivered', products: ['NGN-DELIVERY'] }, randomUUID());
+    await refundOrder(usdOrder.id, '1150', randomUUID()); await refundOrder(ngnOrder.id, '1725000', randomUUID());
+    expect(await getWallet(owner, 'USD')).toMatchObject({ availableMinor: '5000', reservedMinor: '0', currency: 'USD' });
+    expect(await getWallet(owner, 'NGN')).toMatchObject({ availableMinor: '2000000', reservedMinor: '0', currency: 'NGN' });
+    await setManualExchangeRate(admin, '1500.00', 'Restore default test rate'); clearExchangeRateCache();
   });
 });

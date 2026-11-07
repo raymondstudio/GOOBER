@@ -1,5 +1,5 @@
 import { describe,expect,it } from 'vitest';
-import { FixtureSupplier,GramlAdapter,PaiAdapter,PaystackAdapter,losslessBody,parseGramlCatalog,parseGramlOutcome,parsePaiCallback,parsePaiCatalog,parsePaiOutcome,parsePaystackCallback,parsePaystackTransaction,signHmac,type AdapterConfig,type FixtureReceipt,type FixtureStore,type FundingExpectation,type SupplierRequest } from '../../packages/providers/src/index.js';
+import { FixtureSupplier,GramlAdapter,PaiAdapter,PaystackAdapter,losslessBody,majorToCents,majorToKobo,majorToPaystackMinor,parseGramlCatalog,parseGramlOutcome,parsePaiCallback,parsePaiCatalog,parsePaiOutcome,parsePaystackCallback,parsePaystackTransaction,signHmac,validatePaystackMinimum,type AdapterConfig,type FixtureReceipt,type FixtureStore,type FundingExpectation,type SupplierRequest } from '../../packages/providers/src/index.js';
 
 const fixtureConfig:AdapterConfig={appEnvironment:'test',environment:'test',accountId:'synthetic-account',mode:'fixture'};
 const request:SupplierRequest={externalOrderId:'fixture-order-1',productId:'fictional-product',quantity:1,expectedMinor:'50',currency:'USD'};
@@ -124,21 +124,49 @@ describe('authenticated callback identity',()=>{
 });
 
 const funding:FundingExpectation={reference:'goober-test-funding',amountMinor:'50000',currency:'NGN',environment:'test',ownerId:'synthetic-owner'};
+const usdFunding:FundingExpectation={reference:'goober-test-usd-funding',amountMinor:'1150',currency:'USD',environment:'test',ownerId:'synthetic-owner'};
 function paymentBody(extra:Record<string,unknown>={}) {return {status:true,data:{id:9001,domain:'test',status:'success',reference:funding.reference,amount:50000,currency:'NGN',...extra}};}
-describe('proposed Paystack test integration',()=>{
-  it('distinguishes API envelope status from actual transaction status',()=>{
+describe('Paystack dual-currency NGN/USD test integration',()=>{
+  it('converts major NGN into kobo and major USD into cents and validates minimums',()=>{
+    expect(majorToKobo('11500.00')).toBe('1150000');expect(majorToCents('11.50')).toBe('1150');
+    expect(majorToPaystackMinor('11500','NGN')).toBe('1150000');expect(majorToPaystackMinor('11.50','USD')).toBe('1150');
+    expect(()=>validatePaystackMinimum('9999','NGN')).toThrow('paystack-minimum-amount-ngn');expect(()=>validatePaystackMinimum('10000','NGN')).not.toThrow();
+    expect(()=>validatePaystackMinimum('99','USD')).toThrow('paystack-minimum-amount-usd');expect(()=>validatePaystackMinimum('100','USD')).not.toThrow();
+  });
+  it('distinguishes API envelope status from actual transaction status and rejects currency/amount mismatch',()=>{
     expect(parsePaystackTransaction(losslessBody(JSON.stringify(paymentBody({status:'pending'}))),funding).status).toBe('pending');
     expect(parsePaystackTransaction(losslessBody(JSON.stringify(paymentBody({status:'reversed'}))),funding).status).toBe('reversed');
+    expect(parsePaystackTransaction(losslessBody(JSON.stringify(paymentBody({reference:usdFunding.reference,amount:1150,currency:'USD'}))),usdFunding)).toMatchObject({status:'success',currency:'USD',amountMinor:'1150'});
     for(const extra of [{domain:'live'},{amount:50001},{currency:'USD'},{reference:'other'}])expect(()=>parsePaystackTransaction(losslessBody(JSON.stringify(paymentBody(extra))),funding)).toThrow('payment-association-mismatch');
   });
-  it('requires original signed bytes and successful matching payment data',()=>{
+  it('requires original signed bytes and successful matching payment data across NGN and USD',()=>{
     const raw=Buffer.from(JSON.stringify({event:'charge.success',data:paymentBody().data}));const secret='synthetic-paystack-secret';
-    expect(parsePaystackCallback(raw,signHmac(raw,secret,'sha512'),secret,funding)).toMatchObject({status:'success',transactionId:'9001'});
+    expect(parsePaystackCallback(raw,signHmac(raw,secret,'sha512'),secret,funding)).toMatchObject({status:'success',transactionId:'9001',currency:'NGN'});
+    const rawUsd=Buffer.from(JSON.stringify({event:'charge.success',data:{id:9002,domain:'test',status:'success',reference:usdFunding.reference,amount:1150,currency:'USD'}}));
+    expect(parsePaystackCallback(rawUsd,signHmac(rawUsd,secret,'sha512'),secret,usdFunding)).toMatchObject({status:'success',transactionId:'9002',currency:'USD',amountMinor:'1150'});
     expect(()=>parsePaystackCallback(Buffer.concat([raw,Buffer.from(' ')]),signHmac(raw,secret,'sha512'),secret,funding)).toThrow('invalid-payment-signature');
   });
   it('initializes server-owned reference with exact minor string and safe checkout host',async()=>{
-    const adapter=new PaystackAdapter(remoteConfig('PAYSTACK',(_url,init)=>{expect(JSON.parse(String(init?.body))).toMatchObject({reference:funding.reference,amount:'50000',currency:'NGN'});return new Response(JSON.stringify({status:true,data:{reference:funding.reference,authorization_url:'https://checkout.paystack.com/synthetic',access_code:'synthetic-code'}}));}));
+    const adapter=new PaystackAdapter(remoteConfig('PAYSTACK',(url,init)=>{
+      if(url.endsWith('/transaction/initialize')){expect(JSON.parse(String(init?.body))).toMatchObject({reference:funding.reference,amount:'50000',currency:'NGN'});return new Response(JSON.stringify({status:true,data:{reference:funding.reference,authorization_url:'https://checkout.paystack.com/synthetic',access_code:'synthetic-code'}}));}
+      if(url.includes('/transaction/verify/'))return new Response(JSON.stringify(paymentBody()));
+      const b=JSON.parse(String(init?.body));return new Response(JSON.stringify({status:true,data:{id:701,status:'processed',amount:Number(b.amount),currency:b.currency}}));
+    }));
     expect((await adapter.initialize(funding,'synthetic@example.test')).reference).toBe(funding.reference);
+    expect(await adapter.verify(funding)).toMatchObject({status:'success',currency:'NGN',amountMinor:'50000'});
+    expect(await adapter.refund({transaction:'9001',amountMinor:'50000',currency:'NGN'})).toMatchObject({refundId:'701',currency:'NGN',amountMinor:'50000',status:'processed'});
+    const usdAdapter=new PaystackAdapter(remoteConfig('PAYSTACK',(url,init)=>{
+      if(url.endsWith('/transaction/initialize')){expect(JSON.parse(String(init?.body))).toMatchObject({reference:usdFunding.reference,amount:'1150',currency:'USD'});return new Response(JSON.stringify({status:true,data:{reference:usdFunding.reference,authorization_url:'https://checkout.paystack.com/usd',access_code:'usd-code'}}));}
+      if(url.includes('/transaction/verify/'))return new Response(JSON.stringify(paymentBody({reference:usdFunding.reference,amount:1150,currency:'USD'})));
+      return new Response(JSON.stringify({status:true,data:{id:702,status:'processed',amount:1150,currency:'USD'}}));
+    }));
+    expect((await usdAdapter.initialize(usdFunding,'synthetic@example.test')).reference).toBe(usdFunding.reference);
+    expect(await usdAdapter.verify(usdFunding)).toMatchObject({status:'success',currency:'USD',amountMinor:'1150'});
+    expect(await usdAdapter.refund({transaction:'9002',amountMinor:'1150',currency:'USD'})).toMatchObject({refundId:'702',currency:'USD',amountMinor:'1150',status:'processed'});
+    const usdDisabled=new PaystackAdapter({...remoteConfig('PAYSTACK',()=>new Response('{}')),usdEnabled:false});
+    await expect(usdDisabled.initialize(usdFunding,'synthetic@example.test')).rejects.toThrow('paystack-usd-not-enabled');
+    await expect(adapter.initialize({...funding,amountMinor:'5000'},'synthetic@example.test')).rejects.toThrow('paystack-minimum-amount-ngn');
+    await expect(usdAdapter.initialize({...usdFunding,amountMinor:'50'},'synthetic@example.test')).rejects.toThrow('paystack-minimum-amount-usd');
     const malicious=new PaystackAdapter(remoteConfig('PAYSTACK',()=>new Response(JSON.stringify({status:true,data:{reference:funding.reference,authorization_url:'https://checkout.paystack.com.evil.test/synthetic',access_code:'synthetic-code'}}))));
     await expect(malicious.initialize(funding,'synthetic@example.test')).rejects.toThrow('invalid-checkout-url');
   });

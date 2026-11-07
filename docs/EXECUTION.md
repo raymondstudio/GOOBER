@@ -1,3 +1,17 @@
+# M4 execution — 7 November 2026
+
+Source: Owner Final Implementation Decisions & Additional Directives (VS Code + Cline, Graphify persistent memory, Paystack primary payment gateway, NGN/USD dual-currency marketplace, exact 15% supplier markup, centralized exchange-rate service, fixed-price storefront).
+
+| Gate | Status | Evidence / dependency |
+| --- | --- | --- |
+| G0 Graphify & MCP | PASS | Verified Graphify 0.9.96; mapped 117 code files (986 nodes, 2,599 edges, 52 communities, 0 secret files); generated `graphify-out/GRAPH_REPORT.md` & `graphify-out/graph.json`; configured `.vscode/mcp.json` & Cline MCP settings via `scripts/graphify-mcp-stdio.py`; 10/10 MCP self-test queries passed. |
+| G1 DB & Migration | PASS | Applied migration `202611070003_dual_currency_paystack` on PostgreSQL 17.11; added `ExchangeRate` table, dual-currency `Wallet`/`PaymentIntent` constraints, per-currency `goober_assert_wallet_currency` trigger, and immutable `Order` pricing/currency snapshot trigger `goober_order_guard`. |
+| G2 Paystack & Commerce | PASS | Implemented `packages/commerce/src/pricing.ts` (15% markup in supplier currency + single conversion), `packages/commerce/src/exchange-rate.ts` (provider fetch, cache, admin override, fallback/fail-closed), `packages/commerce/src/paystack-funding.ts`, and `packages/providers/src/paystack.ts` (NGN kobo / USD cents initialize, minimums, verify, SHA512 webhook, refund). |
+| G3 Dual-Currency Web | PASS | Added header `CurrencySelector` (`NGN (₦)` / `USD ($)`), `/cart` shopping cart & checkout, dual-currency catalog/product/wallet/order/operations views, and admin exchange-rate override & per-currency revenue analytics. |
+| G4 Automated Tests | PASS | `pnpm lint` (0 errors), `pnpm typecheck` (0 errors), 93 unit tests passed (`tests/unit`), and 36 PostgreSQL/Redis integration tests passed (`provider-metadata`, `commerce` including 15 Paystack/currency/rate/refund scenarios, `worker`, `worker-recovery`, `worker-security`). |
+
+---
+
 # M3 execution — 29 October 2026
 
 Branch: codex/goober-m3-auth-recovery-landing-redesign, created from clean M2 handoff097c2e653016b626c5f6319376d445185f06ef62; functional M2ce71c42 preserved. Source: docs/source/GOOBER-M3-auth-recovery-landing-redesign-prompt.md. No screenshot attached in this turn; M2 captures available, current running UI inspection required before redesign.

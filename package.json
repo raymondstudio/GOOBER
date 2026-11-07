@@ -11,7 +11,7 @@
     "dev:infra": "powershell -NoProfile -File scripts/infra/start.ps1",
     "dev:infra:stop": "powershell -NoProfile -File scripts/infra/stop.ps1",
     "setup:local": "node scripts/setup-local.mjs",
-    "db:generate": "node --env-file-if-exists=.env node_modules/prisma/build/index.js generate --config packages/db/prisma.config.ts",
+    "db:generate": "node --env-file-if-exists=.env node_modules/prisma/build/index.js generate --no-hints --config packages/db/prisma.config.ts",
     "db:migrate": "node --env-file-if-exists=.env node_modules/prisma/build/index.js migrate deploy --config packages/db/prisma.config.ts",
     "db:seed": "node --env-file-if-exists=.env --import tsx packages/db/src/seed.ts",
     "admin:grant": "node --env-file-if-exists=.env --import tsx scripts/admin.ts",
@@ -30,7 +30,9 @@
     "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm build && pnpm test:e2e",
     "db:permissions": "node --env-file-if-exists=.env --import tsx scripts/infra/permissions.ts",
     "auth:schema:check": "node --env-file-if-exists=.env --import tsx scripts/infra/auth-schema.ts",
-    "test:clean-checkout": "node scripts/verify-clean-checkout.mjs"
+    "test:clean-checkout": "node scripts/verify-clean-checkout.mjs",
+    "graphify:update": ".local/skill-tools/graphify/Scripts/python.exe scripts/graphify-build.py",
+    "graphify:mcp": ".local/skill-tools/graphify/Scripts/python.exe scripts/graphify-mcp-stdio.py"
   },
   "dependencies": {
     "@nestjs/common": "12.1.3",

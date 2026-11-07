@@ -29,3 +29,17 @@ For substantial tasks, select the relevant installed workflow from docs/SKILLS.m
 ## M3 continuation
 
 Continue from verified M2 handoff097c2e6 on codex/goober-m3-auth-recovery-landing-redesign under docs/source/GOOBER-M3-auth-recovery-landing-redesign-prompt.md. Diagnose dependency health from Windows before auth changes; retain database rate limits and durable worker recovery. Use bounded read-only discovery then exclusive frontend/runtime/QA work, independent security review, no nested agents. Verify healthy and unavailable DB/Redis, persisted auth/catalog/customer journey, four responsive widths, restore and committed clean checkout. Keep one infrastructure path and preserve all records, .env and M2 evidence. Lead owns shared/root/configuration/integration. No live money, external purchases, deployment, push or merge. Record M3 evidence separately.
+
+## M4 — Final Implementation Directives & Graphify Persistent Memory
+
+1. **Graphify Mandatory Workflow**:
+   - The complete GOOBER codebase is mapped in `graphify-out/graph.json` and `graphify-out/GRAPH_REPORT.md` using `.local/skill-tools/graphify/Scripts/graphify.exe` (`pnpm graphify:update`) and exposed via local MCP (`scripts/graphify-mcp-stdio.py`, configured in `.vscode/mcp.json` and Cline MCP settings).
+   - **Query-first requirement**: Before investigating or modifying any feature, query Graphify (`query_graph`, `get_node`, `get_neighbors`, `shortest_path`, or CLI `graphify query`) to locate relevant files, functions, modules and dependencies. Then inspect the actual source code before editing.
+   - **Synchronization**: Run `pnpm graphify:update` after significant architectural changes to keep the graph and `GRAPH_REPORT.md` synchronized. Never include `.env` or secret credentials in generated artifacts.
+2. **Multi-Agent & VS Code Environment**:
+   - VS Code + Cline extension is the primary IDE/agent. Do not simulate native subagents inside the extension; use isolated branches/worktrees or sequential specialist passes with Principal Engineer integration review and `docs/EXECUTION.md` tracking.
+3. **Paystack & Dual-Currency Marketplace (`NGN` / `USD`)**:
+   - Paystack is the primary payment gateway (`NGN` in kobo, `USD` in cents; server-authoritative verification, raw SHA-512 webhook validation, idempotency, refunds).
+   - Selling price = Supplier base price (`P.ai` USD / `Graml` NGN) × `1.15` (exact 15% markup in supplier currency), then converted to customer-selected currency (`NGN` or `USD`) via the centralized Exchange-Rate Service with immutable order rate snapshots.
+   - Fixed-price professional e-commerce presentation only; no bargain/discount language or crossed-out prices.
+

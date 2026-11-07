@@ -12,7 +12,11 @@ for (const width of [360, 390, 768, 1280]) {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Studio toolkit', exact: true })).toBeVisible();
     const studio = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Studio toolkit', exact: true }) });
-    await expect(studio.locator('.price')).toHaveText('\u20a64,500.00');
+    await expect(studio.locator('.price')).toHaveText('\u20a61,725.00');
+    await page.getByTestId('currency-usd').click();
+    await expect(studio.locator('.price')).toHaveText('$1.15');
+    await page.getByTestId('currency-ngn').click();
+    await expect(studio.locator('.price')).toHaveText('\u20a61,725.00');
     const firstAction = page.getByRole('link', { name: 'Explore the store', exact: true });
     expect(await firstAction.evaluate(element => getComputedStyle(element).transitionDuration), 'Reduced motion removes action transitions').toBe('0s');
     await expect(page.getByRole('main')).toHaveCount(1);

@@ -14,6 +14,8 @@ export interface AdapterConfig {
   /** External modes require a distributed per-account budget implementation. */
   budget?: RequestBudget;
   fetch?: typeof fetch;
+  /** Paystack USD acceptance requires merchant account activation; defaults to true in sandbox tests unless explicitly disabled. */
+  usdEnabled?: boolean;
 }
 export interface RequestBudget { acquire(scope: string, recovery: boolean): Promise<void>; observe?(scope: string, remaining: number, resetEpoch: number): Promise<void> }
 export interface SupplierRequest {

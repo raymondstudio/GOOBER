@@ -1,19 +1,34 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { prisma, Prisma, FIXTURE_PROVIDER_CONTRACT_VERSION, type Order, type Product, type Wallet } from '@goober/db';
-import type { FundingDto, OrderDto, QuoteDto, WalletDto } from '@goober/contracts';
+import { type Currency, type FundingDto, type OrderDto, type QuoteDto, type WalletDto } from '@goober/contracts';
 import { seal } from './encryption.js';
 import { parseMinor } from './money.js';
+import { calculateDualCurrencyPricing } from './pricing.js';
+import { getExchangeRate, type ExchangeRateSnapshot } from './exchange-rate.js';
+
 export { seal, open } from './encryption.js';
 export type { EncryptionContext, SealedPayload } from './encryption.js';
 export { parseMinor, convertMinorCeil, MAX_MINOR } from './money.js';
+export { applyMarkup15, calculateDualCurrencyPricing, convertSellingMinor, MARKUP_PERCENT, parseExchangeRate } from './pricing.js';
+export type { MarkupCalculation, DualPricingResult } from './pricing.js';
+export { clearExchangeRateCache, exchangeRateDto, getExchangeRate, setManualExchangeRate } from './exchange-rate.js';
+export type { ExchangeRateSnapshot } from './exchange-rate.js';
 
 export class CommerceError extends Error {
   constructor(public code: string, message: string, public status = 400) { super(message); this.name = 'CommerceError'; }
 }
 export type Transaction = Prisma.TransactionClient;
 export interface FundingEvent {
-  eventId: string; type: 'payment.succeeded' | 'payment.reversed'; environment: 'test';
-  reference: string; amountMinor: string; currency: 'NGN'; provider?: 'fixture'; providerAccount?: 'fixture'; inboxId?: string;
+  eventId: string;
+  type: 'payment.succeeded' | 'payment.reversed' | 'payment.failed';
+  environment: 'test';
+  reference: string;
+  amountMinor: string;
+  currency: Currency;
+  provider?: 'fixture' | 'paystack';
+  providerAccount?: 'fixture' | 'sandbox';
+  processorTransactionId?: string;
+  inboxId?: string;
 }
 export interface CommerceOutcome {
   status: 'delivered' | 'failed' | 'queued' | 'unknown'; products?: string[]; reason?: string;
@@ -27,8 +42,8 @@ const accountKey = (ownerId: string | null, purpose: string, currency: string) =
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 function assertLocal() {
-  if (!['local', 'test'].includes(process.env.APP_ENV ?? '') || process.env.DATA_ENV !== 'test' || process.env.PAYMENT_MODE !== 'fixture') {
-    throw new CommerceError('MODE_DISABLED', 'This commerce slice requires isolated local/test fixture funding', 503);
+  if (!['local', 'test'].includes(process.env.APP_ENV ?? '') || process.env.DATA_ENV !== 'test' || !['fixture', 'paystack'].includes(process.env.PAYMENT_MODE ?? '')) {
+    throw new CommerceError('MODE_DISABLED', 'This commerce slice requires isolated local/test funding', 503);
   }
 }
 function amount(value: string, allowZero = false) {
@@ -59,15 +74,16 @@ export async function withSerializable<T>(work: (tx: Transaction) => Promise<T>)
   }
 }
 
-async function walletLock(tx: Transaction, ownerId: string): Promise<Wallet> {
-  await tx.wallet.upsert({ where: { ownerId_environment_currency: { ownerId, environment, currency: 'NGN' } }, create: { ownerId, environment }, update: {} });
-  await tx.$queryRaw`SELECT id FROM "Wallet" WHERE "ownerId"=${ownerId} AND environment=${environment} AND currency='NGN' FOR UPDATE`;
-  return tx.wallet.findUniqueOrThrow({ where: { ownerId_environment_currency: { ownerId, environment, currency: 'NGN' } } });
+async function walletLock(tx: Transaction, ownerId: string, currency: Currency = 'NGN'): Promise<Wallet> {
+  await tx.wallet.upsert({ where: { ownerId_environment_currency: { ownerId, environment, currency } }, create: { ownerId, environment, currency }, update: {} });
+  await tx.$queryRaw`SELECT id FROM "Wallet" WHERE "ownerId"=${ownerId} AND environment=${environment} AND currency=${currency} FOR UPDATE`;
+  return tx.wallet.findUniqueOrThrow({ where: { ownerId_environment_currency: { ownerId, environment, currency } } });
 }
 async function orderLock(tx: Transaction, orderId: string) {
-  const identity = await tx.order.findUnique({ where: { id: orderId }, select: { ownerId: true, environment: true } });
+  const identity = await tx.order.findUnique({ where: { id: orderId }, select: { ownerId: true, environment: true, customerCurrency: true } });
   if (!identity || identity.environment !== environment) throw new CommerceError('NOT_FOUND', 'Order was not found', 404);
-  const wallet = await walletLock(tx, identity.ownerId);
+  const currency = (identity.customerCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
+  const wallet = await walletLock(tx, identity.ownerId, currency);
   await tx.$queryRaw`SELECT id FROM "Order" WHERE id=${orderId} FOR UPDATE`;
   const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { product: true, quote: true } });
   return { wallet, order };
@@ -86,23 +102,51 @@ async function journal(tx: Transaction, operationId: string, currency: string, e
   await tx.posting.createMany({ data: entries.filter(entry => entry.amountMinor > 0n).map(entry => ({ ...entry, journalId: record.id, currency })) });
   return tx.journal.update({ where: { id: record.id }, data: { postedAt: new Date() } });
 }
-async function customerAccounts(tx: Transaction, ownerId: string) {
-  const available = await account(tx, ownerId, 'CUSTOMER_AVAILABLE');
-  const reserved = await account(tx, ownerId, 'CUSTOMER_RESERVED');
+async function customerAccounts(tx: Transaction, ownerId: string, currency: Currency = 'NGN') {
+  const available = await account(tx, ownerId, 'CUSTOMER_AVAILABLE', currency);
+  const reserved = await account(tx, ownerId, 'CUSTOMER_RESERVED', currency);
   return { available, reserved };
 }
 async function markInbox(tx: Transaction, inboxId?: string) {
   if (inboxId) await tx.inbox.updateMany({ where: { id: inboxId, status: { not: 'PROCESSED' } }, data: { status: 'PROCESSED', processedAt: new Date(), lastError: null } });
 }
 function walletDto(wallet: Wallet): WalletDto {
-  return { availableMinor: wallet.availableMinor.toString(), reservedMinor: wallet.reservedMinor.toString(), currency: 'NGN', frozen: wallet.frozen, environment: 'test' };
+  return { availableMinor: wallet.availableMinor.toString(), reservedMinor: wallet.reservedMinor.toString(), currency: (wallet.currency === 'USD' ? 'USD' : 'NGN') as Currency, frozen: wallet.frozen, environment: 'test' };
 }
 export function orderDto(order: Order & { product?: Pick<Product, 'name'> }): OrderDto {
-  return { id: order.id, productId: order.productId, productName: order.product?.name ?? 'Digital product', fulfillmentState: order.fulfillment, moneyState: order.moneyStatus, totalMinor: order.reservedMinor.toString(), currency: 'NGN', environment: order.environment as 'test' | 'live', version: order.version, reviewReason: order.reviewReason, createdAt: order.createdAt.toISOString() };
+  const currency = (order.customerCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
+  const paymentCurrency = (order.paymentCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
+  const supplierCurrency = (order.supplierCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
+  return {
+    id: order.id,
+    productId: order.productId,
+    productName: order.product?.name ?? 'Digital product',
+    fulfillmentState: order.fulfillment,
+    moneyState: order.moneyStatus,
+    totalMinor: order.reservedMinor.toString(),
+    currency,
+    supplierMinor: order.supplierMinor.toString(),
+    supplierCurrency,
+    markupPercent: 15,
+    markupMinor: order.markupMinor.toString(),
+    sellingMinor: order.sellingMinor.toString(),
+    customerCurrency: currency,
+    exchangeRate: order.exchangeRate,
+    exchangeRateSource: order.exchangeRateSource,
+    exchangeRateAt: order.exchangeRateAt.toISOString(),
+    payableMinor: (order.payableMinor > 0n ? order.payableMinor : order.reservedMinor).toString(),
+    paymentCurrency,
+    paymentReference: order.paymentReference ?? null,
+    refundedMinor: order.refundedMinor.toString(),
+    environment: order.environment as 'test' | 'live',
+    version: order.version,
+    reviewReason: order.reviewReason,
+    createdAt: order.createdAt.toISOString(),
+  };
 }
-export async function getWallet(ownerId: string): Promise<WalletDto> {
+export async function getWallet(ownerId: string, currency: Currency = 'NGN'): Promise<WalletDto> {
   assertLocal();
-  return withSerializable(async tx => walletDto(await walletLock(tx, ownerId)));
+  return withSerializable(async tx => walletDto(await walletLock(tx, ownerId, currency)));
 }
 
 function assertProduct(product: Product) {
@@ -114,27 +158,80 @@ function assertProduct(product: Product) {
   if (product.apiContractVersion !== FIXTURE_PROVIDER_CONTRACT_VERSION) throw new CommerceError('UNSUPPORTED_PROVIDER_CONTRACT', 'The provider contract requires review', 409);
   if (product.retailMinor <= 0n || product.supplierMinor < 0n || (product.provider === 'PAI' ? product.supplierCurrency !== 'USD' : product.supplierCurrency !== 'NGN')) throw new CommerceError('INVALID_PRICE', 'Product pricing is unavailable', 409);
 }
-export async function createQuote(ownerId: string, productId: string, quantity = 1): Promise<QuoteDto> {
+
+export async function createQuote(ownerId: string, productId: string, quantity = 1, customerCurrency?: Currency): Promise<QuoteDto> {
   assertLocal();
   if (quantity !== 1) throw new CommerceError('UNSUPPORTED_QUANTITY', 'M1 supports one product per order');
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new CommerceError('NOT_FOUND', 'Product was not found', 404);
   assertProduct(product);
-  const quote = await prisma.quote.create({ data: {
-    ownerId, environment, productId, productVersion: product.version, quantity, retailMinor: product.retailMinor,
-    supplierMinor: product.supplierMinor, supplierCurrency: product.supplierCurrency, apiContractVersion: product.apiContractVersion,
-    ...(product.supplierCurrency === 'USD' ? { fxRate: '1500', fxSource: 'synthetic-fixture-only', fxObservedAt: new Date() } : {}),
-    pricingVersion: 'fixture-fixed-retail-v1', entitlement: product.entitlement, terms: product.terms,
-    provider: product.provider, providerMode: product.providerMode, paymentMode: 'fixture', expiresAt: new Date(Date.now() + 120_000),
-  } });
-  return { id: quote.id, productId, priceMinor: quote.retailMinor.toString(), currency: 'NGN', expiresAt: quote.expiresAt.toISOString(), terms: quote.terms };
+  const targetCurrency: Currency = customerCurrency === 'USD' ? 'USD' : 'NGN';
+  let rateSnapshot: ExchangeRateSnapshot;
+  try {
+    rateSnapshot = await getExchangeRate();
+  } catch (err) {
+    throw new CommerceError('EXCHANGE_RATE_UNAVAILABLE', err instanceof Error ? err.message : 'Exchange rate unavailable', 503);
+  }
+  const pricing = calculateDualCurrencyPricing(product, targetCurrency, rateSnapshot);
+  const useLegacyRetail = product.pricingPolicy === 'legacy-retail' && customerCurrency === undefined;
+  const payableMinor = useLegacyRetail ? product.retailMinor : pricing.payableMinor;
+  const quote = await prisma.quote.create({
+    data: {
+      ownerId,
+      environment,
+      productId,
+      productVersion: product.version,
+      quantity,
+      retailMinor: payableMinor,
+      supplierMinor: product.supplierMinor,
+      supplierCurrency: product.supplierCurrency,
+      markupMinor: pricing.markupMinor,
+      sellingMinor: pricing.sellingMinor,
+      customerCurrency: targetCurrency,
+      payableMinor,
+      apiContractVersion: product.apiContractVersion,
+      fxRate: pricing.exchangeRate,
+      fxSource: pricing.exchangeRateSource,
+      fxObservedAt: rateSnapshot.updatedAt,
+      pricingVersion: useLegacyRetail ? 'fixture-fixed-retail-v1' : 'markup-15-dual-currency-v1',
+      entitlement: product.entitlement,
+      terms: product.terms,
+      provider: product.provider,
+      providerMode: product.providerMode,
+      paymentMode: 'fixture',
+      expiresAt: new Date(Date.now() + 120_000),
+    },
+  });
+  return {
+    id: quote.id,
+    productId,
+    priceMinor: quote.retailMinor.toString(),
+    currency: targetCurrency,
+    supplierMinor: quote.supplierMinor.toString(),
+    supplierCurrency: (quote.supplierCurrency === 'USD' ? 'USD' : 'NGN') as Currency,
+    markupPercent: 15,
+    markupMinor: quote.markupMinor.toString(),
+    sellingMinor: quote.sellingMinor.toString(),
+    exchangeRate: quote.fxRate ?? '1',
+    exchangeRateSource: quote.fxSource ?? 'par',
+    exchangeRateAt: (quote.fxObservedAt ?? quote.createdAt).toISOString(),
+    expiresAt: quote.expiresAt.toISOString(),
+    terms: quote.terms,
+  };
 }
 
-export async function createOrder(ownerId: string, quoteId: string, idempotencyKey: string): Promise<OrderDto> {
+export async function createOrder(
+  ownerId: string,
+  quoteId: string,
+  idempotencyKey: string,
+  options?: { currency?: Currency; paymentReference?: string },
+): Promise<OrderDto> {
   assertLocal(); operation(idempotencyKey);
-  const requestHash = hash({ quoteId });
+  const requestHash = hash({ quoteId, ...(options?.currency ? { currency: options.currency } : {}), ...(options?.paymentReference ? { paymentReference: options.paymentReference } : {}) });
   return withSerializable(async tx => {
-    const wallet = await walletLock(tx, ownerId);
+    const quotePeek = await tx.quote.findUnique({ where: { id: quoteId }, select: { customerCurrency: true } });
+    const quoteCurrency = (quotePeek?.customerCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
+    const wallet = await walletLock(tx, ownerId, quoteCurrency);
     const key = { ownerId, operation: 'create-order', environment, key: idempotencyKey };
     const replay = await tx.idempotencyRecord.findUnique({ where: { ownerId_operation_environment_key: key } });
     if (replay) {
@@ -146,6 +243,9 @@ export async function createOrder(ownerId: string, quoteId: string, idempotencyK
     await tx.$queryRaw`SELECT id FROM "Quote" WHERE id=${quoteId} FOR UPDATE`;
     const quote = await tx.quote.findUnique({ where: { id: quoteId }, include: { order: { include: { product: true } } } });
     if (!quote || quote.ownerId !== ownerId || quote.environment !== environment) throw new CommerceError('NOT_FOUND', 'Quote was not found', 404);
+    if (options?.currency && options.currency !== quoteCurrency) {
+      throw new CommerceError('CURRENCY_MISMATCH', 'Customer-selected currency does not match the quote currency', 409);
+    }
     if (quote.order) {
       await tx.idempotencyRecord.create({ data: { ...key, requestHash, resultId: quote.order.id } });
       return orderDto(quote.order);
@@ -154,13 +254,48 @@ export async function createOrder(ownerId: string, quoteId: string, idempotencyK
     await tx.$queryRaw`SELECT id FROM "Product" WHERE id=${quote.productId} FOR UPDATE`;
     const product = await tx.product.findUniqueOrThrow({ where: { id: quote.productId } });
     assertProduct(product);
-    if (product.apiContractVersion !== quote.apiContractVersion || product.version !== quote.productVersion || product.retailMinor !== quote.retailMinor || product.supplierMinor !== quote.supplierMinor || product.supplierCurrency !== quote.supplierCurrency || product.provider !== quote.provider || product.providerMode !== quote.providerMode || product.terms !== quote.terms || product.entitlement !== quote.entitlement || quote.paymentMode !== 'fixture') throw new CommerceError('QUOTE_CHANGED', 'Product terms changed; accept a fresh quote', 409);
+    const legacyPriceChanged = product.pricingPolicy === 'legacy-retail' && quote.pricingVersion === 'fixture-fixed-retail-v1' && product.retailMinor !== quote.retailMinor;
+    if (product.apiContractVersion !== quote.apiContractVersion || product.version !== quote.productVersion || legacyPriceChanged || product.supplierMinor !== quote.supplierMinor || product.supplierCurrency !== quote.supplierCurrency || product.provider !== quote.provider || product.providerMode !== quote.providerMode || product.terms !== quote.terms || product.entitlement !== quote.entitlement || quote.paymentMode !== 'fixture') {
+      throw new CommerceError('QUOTE_CHANGED', 'Product terms changed; accept a fresh quote', 409);
+    }
+    if (options?.paymentReference) {
+      const intent = await tx.paymentIntent.findUnique({ where: { reference: options.paymentReference } });
+      if (!intent || intent.ownerId !== ownerId || intent.environment !== environment || intent.currency !== quoteCurrency || intent.amountMinor !== quote.retailMinor) {
+        throw new CommerceError('PAYMENT_MISMATCH', 'Payment reference currency or amount does not match the quote', 409);
+      }
+    }
     if (wallet.frozen) throw new CommerceError('WALLET_FROZEN', 'Purchasing is paused while a funding issue is reviewed', 409);
-    if (wallet.availableMinor < quote.retailMinor) throw new CommerceError('INSUFFICIENT_FUNDS', 'Add enough test purchasing credit before checkout', 409);
+    if (wallet.availableMinor < quote.retailMinor) throw new CommerceError('INSUFFICIENT_FUNDS', 'Add enough purchasing credit in the selected currency before checkout', 409);
     const id = randomUUID();
-    const order = await tx.order.create({ data: { id, ownerId, environment, quoteId, productId: product.id, reservedMinor: quote.retailMinor, provider: product.provider, providerAccount: product.providerAccount, providerMode: quote.providerMode, paymentMode: 'fixture', providerReference: `goober-test-${id}` }, include: { product: true } });
-    const { available, reserved } = await customerAccounts(tx, ownerId);
-    await journal(tx, `reserve:${id}`, 'NGN', [{ accountId: available.id, direction: 'DEBIT', amountMinor: quote.retailMinor }, { accountId: reserved.id, direction: 'CREDIT', amountMinor: quote.retailMinor }], { kind: 'reservation', orderId: id });
+    const order = await tx.order.create({
+      data: {
+        id,
+        ownerId,
+        environment,
+        quoteId,
+        productId: product.id,
+        reservedMinor: quote.retailMinor,
+        supplierMinor: quote.supplierMinor,
+        supplierCurrency: quote.supplierCurrency,
+        markupMinor: quote.markupMinor,
+        sellingMinor: quote.sellingMinor,
+        customerCurrency: quoteCurrency,
+        exchangeRate: quote.fxRate ?? '1',
+        exchangeRateSource: quote.fxSource ?? 'par',
+        exchangeRateAt: quote.fxObservedAt ?? quote.createdAt,
+        payableMinor: quote.payableMinor > 0n ? quote.payableMinor : quote.retailMinor,
+        paymentCurrency: quoteCurrency,
+        paymentReference: options?.paymentReference ?? null,
+        provider: product.provider,
+        providerAccount: product.providerAccount,
+        providerMode: quote.providerMode,
+        paymentMode: 'fixture',
+        providerReference: `goober-test-${id}`,
+      },
+      include: { product: true },
+    });
+    const { available, reserved } = await customerAccounts(tx, ownerId, quoteCurrency);
+    await journal(tx, `reserve:${id}`, quoteCurrency, [{ accountId: available.id, direction: 'DEBIT', amountMinor: quote.retailMinor }, { accountId: reserved.id, direction: 'CREDIT', amountMinor: quote.retailMinor }], { kind: 'reservation', orderId: id, currency: quoteCurrency });
     await tx.wallet.update({ where: { id: wallet.id }, data: { availableMinor: { decrement: quote.retailMinor }, reservedMinor: { increment: quote.retailMinor } } });
     await tx.quote.update({ where: { id: quoteId }, data: { acceptedAt: new Date() } });
     await tx.idempotencyRecord.create({ data: { ...key, requestHash, resultId: id } });
@@ -169,54 +304,72 @@ export async function createOrder(ownerId: string, quoteId: string, idempotencyK
   });
 }
 
-export async function createFundingIntent(ownerId: string, amountMinor: string): Promise<FundingDto> {
+
+export async function createFundingIntent(ownerId: string, amountMinor: string, options?: import('./paystack-funding.js').CreateFundingOptions): Promise<FundingDto> {
   assertLocal();
   const value = amount(amountMinor);
+  const currency: Currency = options?.currency === 'USD' ? 'USD' : 'NGN';
+  const provider = options?.provider ?? (process.env.PAYMENT_MODE === 'paystack' ? 'paystack' : 'fixture');
+  if (provider === 'paystack') {
+    const { initializePaystackFunding } = await import('./paystack-funding.js');
+    return initializePaystackFunding(ownerId, value, currency, options);
+  }
   if (value < 100n || value > 100_000_000n) throw new CommerceError('INVALID_AMOUNT', 'Test funding must be between 100 and 100000000 minor units');
-  const intent = await prisma.paymentIntent.create({ data: { ownerId, environment, reference: `fixture-${randomUUID()}`, amountMinor: value, provider: 'fixture', providerAccount: 'fixture', paymentMode: 'fixture' } });
-  return { id: intent.id, reference: intent.reference, amountMinor: intent.amountMinor.toString(), currency: 'NGN', mode: 'fixture', status: intent.status };
+  const intent = await prisma.paymentIntent.create({ data: { ownerId, environment, reference: `fixture-${randomUUID()}`, amountMinor: value, currency, provider: 'fixture', providerAccount: 'fixture', paymentMode: 'fixture', orderId: options?.orderId ?? null } });
+  return { id: intent.id, reference: intent.reference, amountMinor: intent.amountMinor.toString(), currency, mode: 'fixture', status: intent.status };
 }
+
+export { verifyPaystackPayment } from './paystack-funding.js';
+export type { CreateFundingOptions } from './paystack-funding.js';
 
 export async function applyFundingEvent(event: FundingEvent): Promise<void> {
   assertLocal();
-  if (event.environment !== environment || event.currency !== 'NGN' || !['payment.succeeded', 'payment.reversed'].includes(event.type) || (event.provider && event.provider !== 'fixture') || (event.providerAccount && event.providerAccount !== 'fixture')) throw new CommerceError('PAYMENT_MISMATCH', 'Payment evidence does not match this environment');
+  if (event.environment !== environment || !['NGN', 'USD'].includes(event.currency) || !['payment.succeeded', 'payment.reversed', 'payment.failed'].includes(event.type) || (event.provider && !['fixture', 'paystack'].includes(event.provider)) || (event.providerAccount && !['fixture', 'sandbox'].includes(event.providerAccount))) throw new CommerceError('PAYMENT_MISMATCH', 'Payment evidence does not match this environment');
   const eventAmount = amount(event.amountMinor);
-  const identity = await prisma.paymentIntent.findUnique({ where: { reference: event.reference }, select: { ownerId: true } });
+  const identity = await prisma.paymentIntent.findUnique({ where: { reference: event.reference }, select: { ownerId: true, currency: true, provider: true, providerAccount: true } });
   if (!identity) throw new CommerceError('PAYMENT_MISMATCH', 'Payment reference was not found');
+  const expectedProvider = event.provider ?? identity.provider;
+  const expectedAccount = event.providerAccount ?? identity.providerAccount;
+  const intentCurrency = (identity.currency === 'USD' ? 'USD' : 'NGN') as Currency;
   await withSerializable(async tx => {
-    const wallet = await walletLock(tx, identity.ownerId);
+    const wallet = await walletLock(tx, identity.ownerId, intentCurrency);
     await tx.$queryRaw`SELECT id FROM "PaymentIntent" WHERE reference=${event.reference} FOR UPDATE`;
     const intent = await tx.paymentIntent.findUniqueOrThrow({ where: { reference: event.reference } });
-    if (intent.environment !== environment || intent.currency !== event.currency || intent.amountMinor !== eventAmount || intent.provider !== 'fixture' || intent.providerAccount !== 'fixture' || intent.paymentMode !== 'fixture') throw new CommerceError('PAYMENT_MISMATCH', 'Payment amount, currency, provider or environment does not match');
+    if (intent.environment !== environment || intent.currency !== event.currency || intent.amountMinor !== eventAmount || intent.provider !== expectedProvider || intent.providerAccount !== expectedAccount) throw new CommerceError('PAYMENT_MISMATCH', 'Payment amount, currency, provider or environment does not match');
+    if (event.type === 'payment.failed') {
+      if (intent.creditedMinor === 0n && intent.status === 'PENDING') await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'FAILED', processorTransactionId: event.processorTransactionId ?? intent.processorTransactionId, failureReason: 'payment-failed' } });
+      await markInbox(tx, event.inboxId);
+      return;
+    }
     const pendingReversalId = `pending-reverse-fund:${intent.id}`;
     const pendingReversal = intent.status === 'REVERSAL_PENDING' || !!await tx.auditEvent.findUnique({ where: { operationId: pendingReversalId }, select: { id: true } });
     if (event.type === 'payment.reversed' && intent.creditedMinor === 0n) {
-      // Reversal evidence can precede the success event. Accept it durably rather than
-      // exhausting inbox retries and forgetting the obligation before a delayed credit.
-      await tx.auditEvent.createMany({ data: [{ environment, action: 'PAYMENT_REVERSAL_PENDING', aggregateId: intent.id, operationId: pendingReversalId, reason: 'Verified fixture reversal arrived before original funding evidence', metadata: { amountMinor: eventAmount.toString(), currency: 'NGN', awaitingOriginalCredit: true } }], skipDuplicates: true });
+      await tx.auditEvent.createMany({ data: [{ environment, action: 'PAYMENT_REVERSAL_PENDING', aggregateId: intent.id, operationId: pendingReversalId, reason: 'Verified fixture reversal arrived before original funding evidence', metadata: { amountMinor: eventAmount.toString(), currency: intentCurrency, awaitingOriginalCredit: true } }], skipDuplicates: true });
       await tx.paymentIntent.update({ where: { id: intent.id }, data: { status: 'REVERSAL_PENDING' } });
       await tx.wallet.update({ where: { id: wallet.id }, data: { frozen: true, freezeReason: wallet.frozen ? wallet.freezeReason : 'Verified funding reversal awaits original payment reconciliation' } });
       await markInbox(tx, event.inboxId);
       return;
     }
-    const { available } = await customerAccounts(tx, intent.ownerId);
-    const clearing = await account(tx, null, 'PAYMENT_CLEARING_FIXTURE', 'NGN', 'DEBIT');
+    const { available } = await customerAccounts(tx, intent.ownerId, intentCurrency);
+    const clearingPurpose = intent.provider === 'paystack' ? 'PAYMENT_CLEARING_PAYSTACK' : 'PAYMENT_CLEARING_FIXTURE';
+    const clearing = await account(tx, null, clearingPurpose, intentCurrency, 'DEBIT');
     let availableMinor = wallet.availableMinor;
     if (event.type === 'payment.succeeded' && intent.creditedMinor === 0n) {
-      await journal(tx, `fund:${intent.id}`, 'NGN', [{ accountId: clearing.id, direction: 'DEBIT', amountMinor: eventAmount }, { accountId: available.id, direction: 'CREDIT', amountMinor: eventAmount }], { kind: 'verified-fixture-funding', paymentId: intent.id });
+      await journal(tx, `fund:${intent.id}`, intentCurrency, [{ accountId: clearing.id, direction: 'DEBIT', amountMinor: eventAmount }, { accountId: available.id, direction: 'CREDIT', amountMinor: eventAmount }], { kind: intent.provider === 'paystack' ? 'verified-paystack-funding' : 'verified-fixture-funding', paymentId: intent.id, currency: intentCurrency });
       await tx.wallet.update({ where: { id: wallet.id }, data: { availableMinor: { increment: eventAmount } } });
-      await tx.paymentIntent.update({ where: { id: intent.id }, data: { creditedMinor: eventAmount, status: 'CREDITED' } });
+      await tx.paymentIntent.update({ where: { id: intent.id }, data: { creditedMinor: eventAmount, status: 'CREDITED', processorTransactionId: event.processorTransactionId ?? intent.processorTransactionId } });
+      if (intent.orderId) await tx.order.updateMany({ where: { id: intent.orderId, ownerId: intent.ownerId, paymentReference: null }, data: { paymentReference: intent.reference } });
       availableMinor += eventAmount;
     }
     if ((event.type === 'payment.reversed' || pendingReversal) && intent.reversedMinor === 0n) {
       const recoverable = availableMinor < eventAmount ? availableMinor : eventAmount;
       const debt = eventAmount - recoverable;
-      const receivable = await account(tx, intent.ownerId, 'CUSTOMER_RECEIVABLE', 'NGN', 'DEBIT');
+      const receivable = await account(tx, intent.ownerId, 'CUSTOMER_RECEIVABLE', intentCurrency, 'DEBIT');
       const original = await tx.journal.findUniqueOrThrow({ where: { environment_operationId: { environment, operationId: `fund:${intent.id}` } } });
-      await journal(tx, `reverse-fund:${intent.id}`, 'NGN', [{ accountId: available.id, direction: 'DEBIT', amountMinor: recoverable }, { accountId: receivable.id, direction: 'DEBIT', amountMinor: debt }, { accountId: clearing.id, direction: 'CREDIT', amountMinor: eventAmount }], { kind: 'funding-reversal', paymentId: intent.id, receivableMinor: debt.toString() }, original.id);
+      await journal(tx, `reverse-fund:${intent.id}`, intentCurrency, [{ accountId: available.id, direction: 'DEBIT', amountMinor: recoverable }, { accountId: receivable.id, direction: 'DEBIT', amountMinor: debt }, { accountId: clearing.id, direction: 'CREDIT', amountMinor: eventAmount }], { kind: 'funding-reversal', paymentId: intent.id, receivableMinor: debt.toString(), currency: intentCurrency }, original.id);
       await tx.wallet.update({ where: { id: wallet.id }, data: { availableMinor: { decrement: recoverable }, ...(debt > 0n ? { frozen: true, freezeReason: 'Unresolved reversed funding obligation' } : pendingReversal ? { frozen: true, freezeReason: wallet.freezeReason === 'Verified funding reversal awaits original payment reconciliation' ? 'Funding reversal reconciled; operations review is required before unfreezing' : wallet.freezeReason ?? 'Funding reversal reconciled; operations review is required before unfreezing' } : {}) } });
       await tx.paymentIntent.update({ where: { id: intent.id }, data: { reversedMinor: eventAmount, receivableMinor: debt, status: debt > 0n ? 'DISPUTED' : 'REVERSED' } });
-      await tx.auditEvent.create({ data: { environment, action: 'PAYMENT_REVERSED', aggregateId: intent.id, operationId: `reverse-fund:${intent.id}`, reason: 'Verified fixture payment reversal', metadata: { receivableMinor: debt.toString() } } });
+      await tx.auditEvent.create({ data: { environment, action: 'PAYMENT_REVERSED', aggregateId: intent.id, operationId: `reverse-fund:${intent.id}`, reason: 'Verified fixture payment reversal', metadata: { receivableMinor: debt.toString(), currency: intentCurrency } } });
     }
     await markInbox(tx, event.inboxId);
   });
@@ -248,11 +401,12 @@ async function finish(tx: Transaction, wallet: Wallet, order: Awaited<ReturnType
   }
   if (outcome.status === 'unknown') return openReview(tx, order, operationId, 'Supplier purchase outcome is uncertain; purchasing credit remains held');
   if (outcome.status === 'queued') return tx.order.update({ where: { id: order.id }, data: { fulfillment: 'QUEUED', version: { increment: 1 } }, include: { product: true } });
+  const orderCurrency = (order.customerCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
   const remaining = order.reservedMinor - order.capturedMinor - order.releasedMinor;
-  const { available, reserved } = await customerAccounts(tx, order.ownerId);
+  const { available, reserved } = await customerAccounts(tx, order.ownerId, orderCurrency);
   if (outcome.status === 'failed') {
     if (remaining > 0n) {
-      await journal(tx, `release:${order.id}`, 'NGN', [{ accountId: reserved.id, direction: 'DEBIT', amountMinor: remaining }, { accountId: available.id, direction: 'CREDIT', amountMinor: remaining }], { kind: 'confirmed-failure-release', orderId: order.id });
+      await journal(tx, `release:${order.id}`, orderCurrency, [{ accountId: reserved.id, direction: 'DEBIT', amountMinor: remaining }, { accountId: available.id, direction: 'CREDIT', amountMinor: remaining }], { kind: 'confirmed-failure-release', orderId: order.id, currency: orderCurrency });
       await tx.wallet.update({ where: { id: wallet.id }, data: { availableMinor: { increment: remaining }, reservedMinor: { decrement: remaining } } });
     }
     return tx.order.update({ where: { id: order.id }, data: { fulfillment: 'FAILED', moneyStatus: 'RELEASED', releasedMinor: { increment: remaining }, reviewReason: null, version: { increment: 1 } }, include: { product: true } });
@@ -263,8 +417,8 @@ async function finish(tx: Transaction, wallet: Wallet, order: Awaited<ReturnType
   if (remaining !== order.reservedMinor) return openReview(tx, order, operationId, 'Delivery requires reconciliation of previously applied financial outcomes');
   const protectedDelivery = seal({ products: outcome.products }, { orderId: order.id, provider: order.provider, environment });
   await tx.delivery.create({ data: { orderId: order.id, provider: order.provider, environment, ...protectedDelivery } });
-  const revenue = await account(tx, null, 'SALES_REVENUE');
-  await journal(tx, `capture:${order.id}`, 'NGN', [{ accountId: reserved.id, direction: 'DEBIT', amountMinor: remaining }, { accountId: revenue.id, direction: 'CREDIT', amountMinor: remaining }], { kind: 'sale-capture', orderId: order.id });
+  const revenue = await account(tx, null, 'SALES_REVENUE', orderCurrency);
+  await journal(tx, `capture:${order.id}`, orderCurrency, [{ accountId: reserved.id, direction: 'DEBIT', amountMinor: remaining }, { accountId: revenue.id, direction: 'CREDIT', amountMinor: remaining }], { kind: 'sale-capture', orderId: order.id, currency: orderCurrency });
   await supplierExpense(tx, order, supplierMinor, order.quote.supplierCurrency);
   await tx.wallet.update({ where: { id: wallet.id }, data: { reservedMinor: { decrement: remaining } } });
   return tx.order.update({ where: { id: order.id }, data: { fulfillment: 'DELIVERED', moneyStatus: 'CAPTURED', capturedMinor: { increment: remaining }, reviewReason: supplierMinor !== order.quote.supplierMinor ? 'Supplier charge differs from accepted supplier cost; merchant absorbs local fixture discrepancy' : null, version: { increment: 1 } }, include: { product: true } });
@@ -275,7 +429,7 @@ export async function completeOrder(orderId: string, outcome: CommerceOutcome, o
   if (!['delivered', 'failed', 'queued', 'unknown'].includes(outcome.status)) throw new CommerceError('INVALID_OUTCOME', 'Supplier outcome is invalid');
   return withSerializable(async tx => {
     const { wallet, order } = await orderLock(tx, orderId);
-    if (order.environment !== environment || order.providerMode !== 'fixture' || order.paymentMode !== 'fixture') throw new CommerceError('MODE_DISABLED', 'Order mode is not enabled', 409);
+    if (order.environment !== environment || order.providerMode !== 'fixture' || !['fixture', 'paystack', 'sandbox'].includes(order.paymentMode)) throw new CommerceError('MODE_DISABLED', 'Order mode is not enabled', 409);
     const result = await finish(tx, wallet, order, outcome, operationId);
     await markInbox(tx, outcome.inboxId);
     return orderDto(result);
@@ -283,6 +437,7 @@ export async function completeOrder(orderId: string, outcome: CommerceOutcome, o
 }
 
 async function refund(tx: Transaction, wallet: Wallet, order: Order & { product: Product }, value: bigint, operationId: string) {
+  const orderCurrency = (order.paymentCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
   const economicId = `refund:${order.id}:${operationId}`;
   const replay = await tx.journal.findUnique({ where: { environment_operationId: { environment, operationId: economicId } } });
   if (replay) {
@@ -290,10 +445,10 @@ async function refund(tx: Transaction, wallet: Wallet, order: Order & { product:
     return order;
   }
   if (value > order.capturedMinor - order.refundedMinor) throw new CommerceError('REFUND_LIMIT', 'Refund exceeds the captured refundable purchasing credit', 409);
-  const { available } = await customerAccounts(tx, order.ownerId);
-  const returns = await account(tx, null, 'SALES_RETURNS', 'NGN', 'DEBIT');
+  const { available } = await customerAccounts(tx, order.ownerId, orderCurrency);
+  const returns = await account(tx, null, 'SALES_RETURNS', orderCurrency, 'DEBIT');
   const original = await tx.journal.findUniqueOrThrow({ where: { environment_operationId: { environment, operationId: `capture:${order.id}` } } });
-  await journal(tx, economicId, 'NGN', [{ accountId: returns.id, direction: 'DEBIT', amountMinor: value }, { accountId: available.id, direction: 'CREDIT', amountMinor: value }], { kind: 'goober-purchasing-credit-refund', orderId: order.id, amountMinor: value.toString() }, original.id);
+  await journal(tx, economicId, orderCurrency, [{ accountId: returns.id, direction: 'DEBIT', amountMinor: value }, { accountId: available.id, direction: 'CREDIT', amountMinor: value }], { kind: 'goober-purchasing-credit-refund', orderId: order.id, amountMinor: value.toString(), currency: orderCurrency, exchangeRateSnapshot: order.exchangeRate }, original.id);
   await tx.wallet.update({ where: { id: wallet.id }, data: { availableMinor: { increment: value } } });
   const refundedMinor = order.refundedMinor + value;
   return tx.order.update({ where: { id: order.id }, data: { refundedMinor, moneyStatus: refundedMinor === order.capturedMinor ? 'REFUNDED' : 'PARTIALLY_REFUNDED', version: { increment: 1 } }, include: { product: true } });
@@ -321,10 +476,11 @@ export async function resolveReview(actorId: string, orderId: string, input: Rev
     if (order.providerMode !== 'fixture' || order.paymentMode !== 'fixture') throw new CommerceError('REVIEW_EVIDENCE_REQUIRED', 'External supplier outcomes require verified reconciliation evidence', 409);
     let result: Order & { product: Product };
     if (input.resolution === 'merchant-loss') {
+      const orderCurrency = (order.customerCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
       const held = order.reservedMinor - order.capturedMinor - order.releasedMinor;
       if (held > 0n) {
-        const { available, reserved } = await customerAccounts(tx, order.ownerId);
-        await journal(tx, `merchant-loss:${order.id}`, 'NGN', [{ accountId: reserved.id, direction: 'DEBIT', amountMinor: held }, { accountId: available.id, direction: 'CREDIT', amountMinor: held }], { kind: 'explicit-merchant-loss-credit-release', orderId, evidence: 'Owner-authorized fixture operations decision; supplier outcome remains uncertain' });
+        const { available, reserved } = await customerAccounts(tx, order.ownerId, orderCurrency);
+        await journal(tx, `merchant-loss:${order.id}`, orderCurrency, [{ accountId: reserved.id, direction: 'DEBIT', amountMinor: held }, { accountId: available.id, direction: 'CREDIT', amountMinor: held }], { kind: 'explicit-merchant-loss-credit-release', orderId, currency: orderCurrency, evidence: 'Owner-authorized fixture operations decision; supplier outcome remains uncertain' });
         await tx.wallet.update({ where: { id: wallet.id }, data: { availableMinor: { increment: held }, reservedMinor: { decrement: held } } });
         result = await tx.order.update({ where: { id: orderId }, data: { releasedMinor: { increment: held }, moneyStatus: 'RELEASED', fulfillment: 'NEEDS_REVIEW', reviewReason: 'Merchant-funded credit resolution; supplier outcome remains uncertain and purchase must not repeat', version: { increment: 1 } }, include: { product: true } });
       } else if (order.capturedMinor > order.refundedMinor) result = await refund(tx, wallet, order, order.capturedMinor - order.refundedMinor, input.operationId);

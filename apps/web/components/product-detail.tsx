@@ -2,17 +2,24 @@
 import Link from 'next/link';
 import {useEffect,useRef,useState} from 'react';
 import type {ProductDto,QuoteDto,OrderDto} from '@goober/contracts';
-import {formatNgn} from '@goober/contracts';
+import {formatMoney} from '@goober/contracts';
 import {api} from './api';
 import {DateLabel,ErrorNotice,Loading,useResource} from './shared';
+import {useCart,useCurrency} from './currency';
 
 export function ProductDetail({id}:{id:string}) {
-  const {data:product,loading,refreshing,error,refresh} = useResource<ProductDto>('/products/'+encodeURIComponent(id),{private:false});
+  const [currency] = useCurrency();
+  const {ids:cartIds,add:addToCart} = useCart();
+  const endpoint = currency === 'USD' ? '/products/'+encodeURIComponent(id)+'?currency=USD' : '/products/'+encodeURIComponent(id);
+  const {data:product,loading,refreshing,error,refresh} = useResource<ProductDto>(endpoint,{private:false});
   const [quote,setQuote] = useState<QuoteDto|null>(null);
   const [pending,setPending] = useState('');
   const [failure,setFailure] = useState('');
   const [now,setNow] = useState(Date.now());
   const key = useRef('');
+  useEffect(() => {
+    setQuote(q => (q && q.currency !== currency ? null : q));
+  },[currency]);
   useEffect(() => {
     if(!quote) return;
     const interval = setInterval(() => setNow(Date.now()),1000);
@@ -21,7 +28,8 @@ export function ProductDetail({id}:{id:string}) {
   async function getQuote() {
     setPending('quote'); setFailure('');
     try {
-      const result = await api<QuoteDto>('/quotes',{productId:id,quantity:1});
+      const payload = currency === 'USD' ? {productId:id,quantity:1,currency:'USD'} : {productId:id,quantity:1};
+      const result = await api<QuoteDto>('/quotes',payload);
       key.current = crypto.randomUUID(); setQuote(result); setNow(Date.now());
     } catch(e) { setFailure(e instanceof Error ? e.message : 'Unable to quote.'); }
     finally { setPending(''); }
@@ -41,6 +49,8 @@ export function ProductDetail({id}:{id:string}) {
     <button type="button" className="button secondary" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? 'Retrying product…' : 'Retry product'}</button>
   </section>;
   const expired = !!quote && new Date(quote.expiresAt).getTime() <= now;
+  const displayMinor = product.prices?.[currency]?.amountMinor ?? product.priceMinor;
+  const inCart = cartIds.includes(product.id);
   return <>
     <Link className="text-link breadcrumb" href="/">← Back to the store</Link>
     <div className="product-detail">
@@ -50,10 +60,10 @@ export function ProductDetail({id}:{id:string}) {
         <div className="product-followthrough"><h2>After you place an order.</h2><p>Follow its saved progress in your account. Delivery is revealed privately after it is ready, and help stays linked to the order.</p><Link className="text-link" href="/orders">View your orders</Link></div>
       </div>
       <aside className="panel checkout-panel" aria-label="Checkout">
-        <span className="product-mode">{product.mode} · Local test product</span><p className="eyebrow checkout-eyebrow">Your price</p><p className="display-price">{formatNgn(product.priceMinor)}</p><p className="muted">Paid from your GOOBER test purchasing balance. Live purchasing is disabled.</p>
+        <span className="product-mode">{product.mode} · Local test product · {currency}</span><p className="eyebrow checkout-eyebrow">Your price ({currency})</p><p className="display-price" data-testid="product-display-price">{formatMoney(displayMinor,currency)}</p><p className="muted">Paid from your GOOBER {currency} test purchasing balance. Live purchasing is disabled.</p>
         <ErrorNotice message={failure} focus/>
-        {!quote ? <><button className="button full-width" disabled={!!pending} onClick={() => void getQuote()}>{pending ? 'Getting quote…' : 'Get a quote'}</button><p className="fine-print">Review the final quote and its terms before committing test funds.</p></> : <div className="quote-box">
-          <h2>Review your quote</h2><dl className="detail-list"><div><dt>Quantity</dt><dd>1</dd></div><div><dt>Total</dt><dd>{formatNgn(quote.priceMinor)}</dd></div><div><dt>Accept before</dt><dd><DateLabel value={quote.expiresAt}/></dd></div></dl><p className="terms-copy">{quote.terms}</p>
+        {!quote ? <><button className="button full-width" disabled={!!pending} onClick={() => void getQuote()}>{pending ? 'Getting quote…' : 'Get a quote'}</button><button type="button" className="button secondary full-width" onClick={() => addToCart(product.id)}>{inCart ? 'Added to cart' : 'Add to cart'}</button><p className="fine-print">Review the final quote and its terms before committing test funds.</p></> : <div className="quote-box">
+          <h2>Review your quote</h2><dl className="detail-list"><div><dt>Quantity</dt><dd>1</dd></div><div><dt>Currency</dt><dd>{quote.currency}</dd></div>{quote.exchangeRate && quote.exchangeRate !== '1' && <div><dt>Applied USD/NGN rate</dt><dd>{quote.exchangeRate}</dd></div>}<div><dt>Total ({quote.currency})</dt><dd>{formatMoney(quote.priceMinor,quote.currency)}</dd></div><div><dt>Accept before</dt><dd><DateLabel value={quote.expiresAt}/></dd></div></dl><p className="terms-copy">{quote.terms}</p>
           {expired ? <><p className="notice" role="status">This quote expired. Request a new quote to continue.</p><button className="button full-width" disabled={!!pending} onClick={() => void getQuote()}>{pending ? 'Getting quote…' : 'Get a fresh quote'}</button></> : <><button className="button full-width" disabled={!!pending} onClick={() => void placeOrder()}>{pending === 'order' ? 'Placing order…' : 'Place test order'}</button><p className="fine-print">By placing this order you accept the quoted terms. {Math.max(0,Math.ceil((new Date(quote.expiresAt).getTime()-now)/1000))} seconds remain.</p></>}
         </div>}
         <Link className="text-link" href="/wallet">Manage your test balance</Link>
@@ -61,3 +71,4 @@ export function ProductDetail({id}:{id:string}) {
     </div>
   </>;
 }
+

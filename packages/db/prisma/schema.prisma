@@ -91,6 +91,7 @@ model Product {
   retailMinor        BigInt
   supplierMinor      BigInt
   supplierCurrency   String
+  pricingPolicy      String   @default("legacy-retail")
   version            Int      @default(1)
   fixtureScenario    String   @default("delivered")
   stock              Int      @default(100)
@@ -172,6 +173,10 @@ model Quote {
   retailMinor      BigInt
   supplierMinor    BigInt
   supplierCurrency String
+  markupMinor      BigInt   @default(0)
+  sellingMinor     BigInt   @default(0)
+  customerCurrency String   @default("NGN")
+  payableMinor     BigInt   @default(0)
   fxRate           String?
   fxSource         String?
   fxObservedAt     DateTime?
@@ -202,6 +207,17 @@ model Order {
   capturedMinor      BigInt   @default(0)
   releasedMinor      BigInt   @default(0)
   refundedMinor      BigInt   @default(0)
+  supplierMinor      BigInt   @default(0)
+  supplierCurrency   String   @default("NGN")
+  markupMinor        BigInt   @default(0)
+  sellingMinor       BigInt   @default(0)
+  customerCurrency   String   @default("NGN")
+  exchangeRate       String   @default("1")
+  exchangeRateSource String   @default("par")
+  exchangeRateAt     DateTime @default(now())
+  payableMinor       BigInt   @default(0)
+  paymentCurrency    String   @default("NGN")
+  paymentReference   String?
   provider           String
   providerAccount    String   @default("fixture")
   providerMode       String
@@ -230,23 +246,43 @@ model IdempotencyRecord {
 }
 
 model PaymentIntent {
-  id                 String   @id @default(uuid())
-  ownerId            String
-  environment        String
-  provider           String   @default("fixture")
-  providerAccount    String   @default("fixture")
-  paymentMode        String   @default("fixture")
-  reference          String   @unique
-  amountMinor        BigInt
-  currency           String   @default("NGN")
-  status             String   @default("PENDING")
-  creditedMinor      BigInt   @default(0)
-  reversedMinor      BigInt   @default(0)
-  receivableMinor    BigInt   @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                     String   @id @default(uuid())
+  ownerId                String
+  environment            String
+  provider               String   @default("fixture")
+  providerAccount        String   @default("fixture")
+  paymentMode            String   @default("fixture")
+  reference              String   @unique
+  amountMinor            BigInt
+  currency               String   @default("NGN")
+  status                 String   @default("PENDING")
+  orderId                String?
+  authorizationUrl       String?
+  accessCode             String?
+  processorTransactionId String?
+  failureReason          String?
+  creditedMinor          BigInt   @default(0)
+  reversedMinor          BigInt   @default(0)
+  receivableMinor        BigInt   @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
   @@unique([provider, providerAccount, environment, reference])
   @@index([ownerId, createdAt])
+}
+
+model ExchangeRate {
+  id               String   @id @default(uuid())
+  environment      String   @default("test")
+  baseCurrency     String   @default("USD")
+  quoteCurrency    String   @default("NGN")
+  rate             String
+  source           String   @default("seeded-default")
+  isManualOverride Boolean  @default(false)
+  actorId          String?
+  fetchedAt        DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  @@unique([environment, baseCurrency, quoteCurrency])
 }
 
 model ProviderAttempt {

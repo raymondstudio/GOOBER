@@ -55,3 +55,14 @@ Preserve the existing GOOBER mark, forest/navy/warm palette and serif/sans roles
 ## D015 — M3 resource-aware verification sequencing
 
 The first attempt passed build/lint/types/81units and41of43 controlled tests, but a cold process test exceeded30s and12-way funding hit the existing10s transaction-acquisition budget. Keep all application transaction limits, test deadlines, race concurrency and financial assertions unchanged. Run39 non-HTTP checks before build/idle API/web, then4G1 boundary checks,6HTTP acceptance checks,15browser cases and restore. QA independently confirmed that these39 checks need no HTTP process and no autonomous worker. The fresh rerun passed all39, including both prior failures. This is local observed evidence, not a production latency guarantee.
+
+## D016 — M4 Graphify persistent architectural memory & local MCP integration (7 November 2026)
+
+Verified existing pinned Graphify 0.9.96 installation in `.local/skill-tools/graphify/Scripts/graphify.exe`. Built the full code-only AST graph (`pnpm graphify:update` / `scripts/graphify-build.py`) covering `apps/api`, `apps/web`, `apps/worker`, `packages/auth`, `packages/commerce`, `packages/contracts`, `packages/db`, `packages/providers`, `scripts`, and `tests` (986 nodes, 2,599 edges, 52 communities, 0 `.env` or secret files indexed). Wired the zero-dependency MCP stdio wrapper (`scripts/graphify-mcp-stdio.py`) into `.vscode/mcp.json` and Cline's `cline_mcp_settings.json`, and verified 10/10 live MCP queries (`initialize`, `tools/list`, `resources/list`, `graph_stats`, `god_nodes`, `query_graph`, `shortest_path`).
+
+## D017 — M4 Paystack payment gateway, dual-currency marketplace (NGN/USD) & 15% markup architecture (7 November 2026)
+
+Implemented Paystack (`packages/providers/src/paystack.ts`, `packages/commerce/src/paystack-funding.ts`, `apps/api/src/webhooks.ts`, `apps/worker/src/processor.ts`) as the primary payment gateway supporting `NGN` (in kobo, min `10,000` kobo = ₦100.00) and `USD` (in cents, min `100` cents = $1.00), server-authoritative verification (`GET /transaction/verify/:reference`), raw HMAC-SHA512 webhook validation, idempotent serializable ledger crediting across webhook/verification races, and original-currency refunds (`POST /refund`).
+
+Implemented the strict 15% markup formula (`packages/commerce/src/pricing.ts`: `sellingMinor = supplierMinor + (supplierMinor * 15n + 50n) / 100n`) in the supplier's original currency (`USD` for P.ai, `NGN` for Graml), followed by single-pass conversion into the customer-selected currency (`NGN` or `USD`) via the centralized Exchange-Rate Service (`packages/commerce/src/exchange-rate.ts` + PostgreSQL `ExchangeRate` table) with admin manual override, caching, defined fallback, and immutable rate/price snapshots on `Quote` and `Order` enforced by PostgreSQL trigger `goober_order_guard`.
+

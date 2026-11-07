@@ -2,13 +2,17 @@
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import type {ProductDto} from '@goober/contracts';
-import {formatNgn} from '@goober/contracts';
+import {formatMoney} from '@goober/contracts';
 import {Empty,Loading,useResource} from './shared';
+import {useCart,useCurrency} from './currency';
 
 const pageSize = 12;
 
 export function Catalog() {
-  const {data,loading,refreshing,error,refresh} = useResource<ProductDto[]>('/products',{private:false});
+  const [currency] = useCurrency();
+  const {ids:cartIds,add:addToCart} = useCart();
+  const endpoint = currency === 'USD' ? '/products?currency=USD' : '/products';
+  const {data,loading,refreshing,error,refresh} = useResource<ProductDto[]>(endpoint,{private:false});
   const [search,setSearch] = useState('');
   const [category,setCategory] = useState('all');
   const [visibleCount,setVisibleCount] = useState(pageSize);
@@ -36,7 +40,7 @@ export function Catalog() {
   const filtered = !!search || category !== 'all';
 
   return <section id="catalog" className="catalog-section" aria-labelledby="catalog-title">
-    <div className="catalog-heading"><div><h2 id="catalog-title">Browse the store.</h2><p>Every product starts with its price and terms.</p></div><span className="catalog-mode">Fixture catalog</span></div>
+    <div className="catalog-heading"><div><h2 id="catalog-title">Browse the store.</h2><p>Every product starts with its fixed price in {currency} ({currency === 'USD' ? '$' : '₦'}) and terms.</p></div><span className="catalog-mode">Fixture catalog · {currency}</span></div>
     <form className="catalog-filters" onSubmit={event => event.preventDefault()}>
       <label htmlFor="catalog-search">Search the store<input id="catalog-search" name="search" type="search" autoComplete="off" placeholder="Search digital products…" value={search} onChange={event => changeFilters(event.target.value,category)}/></label>
       <label htmlFor="catalog-category">Category<select id="catalog-category" name="category" value={category} onChange={event => changeFilters(search,event.target.value)}><option value="all">All categories</option>{categories.map(value => <option key={value}>{value}</option>)}</select></label>
@@ -46,14 +50,19 @@ export function Catalog() {
       <h3>The store is temporarily unavailable.</h3><p>Products could not be loaded. Try again shortly; your saved orders stay in your account.</p>
       <button type="button" className="button secondary" disabled={refreshing} onClick={() => void refresh()}>{refreshing ? 'Retrying catalog…' : 'Retry catalog'}</button>
     </div> : products.length ? <>
-      <div className="product-grid">{visibleProducts.map(product => <article className="product-card catalog-product" key={product.id}>
-        <div className="product-content"><div className="card-topline"><span className="product-category">{product.category}</span><span className="product-mode">{product.mode}</span></div>
-          <h3><Link href={'/products/'+encodeURIComponent(product.id)}>{product.name}</Link></h3>
-          <p>{product.description}</p>
-          <div className="product-bottom"><strong className="price">{formatNgn(product.priceMinor)}</strong><Link className="text-link" href={'/products/'+encodeURIComponent(product.id)}>View product &amp; terms</Link></div>
-        </div>
-      </article>)}</div>
+      <div className="product-grid">{visibleProducts.map(product => {
+        const displayMinor = product.prices?.[currency]?.amountMinor ?? product.priceMinor;
+        const inCart = cartIds.includes(product.id);
+        return <article className="product-card catalog-product" key={product.id}>
+          <div className="product-content"><div className="card-topline"><span className="product-category">{product.category}</span><span className="product-mode">{product.mode}</span></div>
+            <h3><Link href={'/products/'+encodeURIComponent(product.id)}>{product.name}</Link></h3>
+            <p>{product.description}</p>
+            <div className="product-bottom"><strong className="price">{formatMoney(displayMinor,currency)}</strong><div className="store-actions"><button type="button" className="button secondary small" onClick={() => addToCart(product.id)}>{inCart ? 'In cart' : 'Add to cart'}</button><Link className="text-link" href={'/products/'+encodeURIComponent(product.id)}>View product &amp; terms</Link></div></div>
+          </div>
+        </article>;
+      })}</div>
       {visibleCount < products.length && <div className="catalog-more"><p>Showing {visibleProducts.length} of {products.length} matching products.</p><button type="button" className="button secondary" onClick={() => setVisibleCount(count => count + pageSize)}>Show more products</button></div>}
     </> : <Empty title={filtered ? 'No products found.' : 'No products available.'}><p>{filtered ? 'Try a different search or category.' : 'There are no published products to browse right now. Check again later.'}</p>{filtered && <button type="button" className="button secondary" onClick={() => changeFilters('','all')}>Reset search</button>}</Empty>}
   </section>;
 }
+

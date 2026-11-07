@@ -149,10 +149,10 @@ export async function processInbox(id:string):Promise<void>{
   if(!claimed.count)return;
   try{
     const row=await prisma.inbox.findUniqueOrThrow({where:{id}});
-    if(row.provider==='fixture'&&row.providerAccount==='fixture'&&['payment.succeeded','payment.reversed'].includes(row.eventType)){
+    if(((row.provider==='fixture'&&row.providerAccount==='fixture')||(row.provider==='paystack'&&row.providerAccount==='sandbox'))&&['payment.succeeded','payment.reversed','payment.failed'].includes(row.eventType)){
       const event=row.payload as unknown as FundingEvent;
-      if(event.eventId!==row.eventId||event.type!==row.eventType||event.environment!=='test'||event.currency!=='NGN'||typeof event.amountMinor!=='string'||typeof event.reference!=='string')throw new ProviderError('invalid-funding-inbox');
-      await applyFundingEvent({...event,provider:'fixture',providerAccount:'fixture',inboxId:id});return;
+      if(event.eventId!==row.eventId||event.type!==row.eventType||event.environment!=='test'||!['NGN','USD'].includes(event.currency)||typeof event.amountMinor!=='string'||typeof event.reference!=='string')throw new ProviderError('invalid-funding-inbox');
+      await applyFundingEvent({...event,provider:row.provider as 'fixture'|'paystack',providerAccount:row.providerAccount as 'fixture'|'sandbox',inboxId:id});return;
     }
     if(row.provider==='PAI'&&['order.delivered','order.queued','order.failed'].includes(row.eventType)){
       const metadata=row.payload as {orderId?:string};if(!metadata.orderId||!row.encryptedPayload)throw new ProviderError('invalid-supplier-inbox');

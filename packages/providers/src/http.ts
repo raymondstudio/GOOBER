@@ -52,7 +52,7 @@ export class SupplierHttp {
       ? (method === 'GET' && (/^\/products$|^\/me$|^\/quote\?/.test(path) || /^\/order\/[^/?]+$/.test(path))) || (method === 'POST' && path === '/order')
       : this.provider === 'GRAML'
         ? method === 'GET' && /^\/(health|products\?limit=100|my\/balance|my\/orders\?limit=(?:[1-9]|[1-9][0-9]|100))$/.test(path)
-        : (method === 'POST' && path === '/transaction/initialize') || (method === 'GET' && /^\/transaction\/verify\/[^/?]+$/.test(path));
+        : (method === 'POST' && (path === '/transaction/initialize' || path === '/refund')) || (method === 'GET' && (/^\/transaction\/verify\/[^/?]+$/.test(path) || /^\/transaction(?:\?.*)?$/.test(path)));
     if (!allowed) throw new ProviderError('operation-not-allowlisted');
     if (!this.config.apiKey && !(this.provider === 'GRAML' && path === '/health')) throw new ProviderError('external-api-key-required');
     const scope = `${this.provider}:${this.config.accountId}:${this.config.environment}`;

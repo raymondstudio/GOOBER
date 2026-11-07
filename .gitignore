@@ -14,3 +14,5 @@ skill-review-tree.json
 packages/db/generated/
 apps/web/.next-test/
 apps/web/next-env.d.ts
+graphify-out/
+

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { MAX_MINOR, convertMinorCeil, open, parseMinor, seal } from '@goober/commerce';
+import { MAX_MINOR, applyMarkup15, calculateDualCurrencyPricing, convertMinorCeil, convertSellingMinor, open, parseExchangeRate, parseMinor, seal } from '@goober/commerce';
 
 describe('exact minor units and protected deliveries', () => {
   const oldKey = process.env.DELIVERY_KEY;
@@ -22,6 +22,30 @@ describe('exact minor units and protected deliveries', () => {
     expect(() => convertMinorCeil(1n, '0')).toThrow();
     expect(() => convertMinorCeil(MAX_MINOR, '2')).toThrow();
   });
+  it('applies exact 15% markup in supplier currency and converts without double markup', () => {
+    // $10.00 (1000 cents) -> $11.50 (1150 cents)
+    const paiMarkup = applyMarkup15(1000n, 'USD');
+    expect(paiMarkup).toEqual({ supplierMinor: 1000n, supplierCurrency: 'USD', markupPercent: 15, markupMinor: 150n, sellingMinor: 1150n });
+    // Convert $11.50 to NGN at 1500 NGN/USD -> ₦17,250.00 (1,725,000 kobo)
+    expect(convertSellingMinor(paiMarkup.sellingMinor, 'USD', 'NGN', '1500')).toEqual({ payableMinor: 1725000n, appliedRate: '1500' });
+    // Convert $11.50 to NGN at 1000 NGN/USD -> ₦11,500.00 (1,150,000 kobo)
+    expect(convertSellingMinor(paiMarkup.sellingMinor, 'USD', 'NGN', '1000')).toEqual({ payableMinor: 1150000n, appliedRate: '1000' });
+
+    // ₦10,000.00 (1,000,000 kobo) -> ₦11,500.00 (1,150,000 kobo)
+    const gramlMarkup = applyMarkup15(1000000n, 'NGN');
+    expect(gramlMarkup).toEqual({ supplierMinor: 1000000n, supplierCurrency: 'NGN', markupPercent: 15, markupMinor: 150000n, sellingMinor: 1150000n });
+    // Convert ₦11,500.00 to USD at 1000 NGN/USD -> $11.50 (1150 cents)
+    expect(convertSellingMinor(gramlMarkup.sellingMinor, 'NGN', 'USD', '1000')).toEqual({ payableMinor: 1150n, appliedRate: '1000' });
+
+    const now = new Date('2026-11-07T00:00:00.000Z');
+    const dual = calculateDualCurrencyPricing({ supplierMinor: 1000n, supplierCurrency: 'USD' }, 'NGN', { rate: '1500', source: 'test', updatedAt: now });
+    expect(dual.sellingMinor).toBe(1150n);
+    expect(dual.payableMinor).toBe(1725000n);
+    expect(dual.prices.USD).toEqual({ amountMinor: '1150', currency: 'USD', formatted: '$11.50' });
+    expect(dual.prices.NGN).toEqual({ amountMinor: '1725000', currency: 'NGN', formatted: '\u20a617,250.00' });
+    expect(() => parseExchangeRate('0')).toThrow();
+    expect(() => parseExchangeRate('-1500')).toThrow();
+  });
   it('encrypts with unique nonces and rejects tampering/order/provider/environment swaps', () => {
     const context = { orderId: 'order-a', provider: 'GRAML', environment: 'test' };
     const value = { products: ['synthetic-account:synthetic-password'] };
@@ -37,3 +61,4 @@ describe('exact minor units and protected deliveries', () => {
     expect(() => open({ ...encrypted, keyId: 'unknown' }, context)).toThrow();
   });
 });
+
