@@ -1,8 +1,12 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { prisma, FIXTURE_PROVIDER_CONTRACT_VERSION } from './index.js';
 const database = new URL(process.env.DATABASE_URL!);
 if (!['local', 'test'].includes(process.env.APP_ENV ?? '') || process.env.DATA_ENV !== 'test' || !['127.0.0.1', 'localhost', 'postgres'].includes(database.hostname) || !['fixture', 'paystack'].includes(process.env.PAYMENT_MODE ?? '')) {
   throw new Error('Seed only accepts explicitly isolated local/test databases');
 }
+const snapshotPath = resolve(import.meta.dirname, 'live-catalog-snapshot.json');
+const hasLiveSnapshot = process.env.APP_ENV === 'local' && existsSync(snapshotPath);
 // Selling price in supplierCurrency = supplierMinor * 1.15 (half-up minor unit rounding)
 const markup15 = (minor: bigint) => minor + (minor * 15n + 50n) / 100n;
 const products = [
@@ -20,8 +24,32 @@ await prisma.exchangeRate.upsert({
   update: { fetchedAt: new Date() },
 });
 for (const item of products) {
-  const data = { ...item, apiContractVersion: FIXTURE_PROVIDER_CONTRACT_VERSION, providerProductId: item.id, providerAccount: 'fixture', providerMode: 'fixture', environment: 'test', approved: true, published: true, approvalEvidence: 'Synthetic local fixture approved for engineering tests only; confers no real platform entitlement', entitlement: 'Synthetic local test entitlement. No real account or subscription is sold.', terms: 'Fixture only. Test balance has no cash value. A confirmed failure releases held test purchasing credit.', deliveryType: item.provider === 'PAI' ? 'code' : 'credential', region: 'Synthetic / local test', observedAt: new Date(), stock: 100, catalogCompleteness: 'fixture-complete', inputType: 'quantity' };
-  await prisma.product.upsert({ where: { id: item.id }, create: data, update: { retailMinor: item.retailMinor, supplierMinor: item.supplierMinor, supplierCurrency: item.supplierCurrency, pricingPolicy: item.pricingPolicy, observedAt: new Date() } });
+  const publishFixture = !hasLiveSnapshot;
+  const data = { ...item, apiContractVersion: FIXTURE_PROVIDER_CONTRACT_VERSION, providerProductId: item.id, providerAccount: 'fixture', providerMode: 'fixture', environment: 'test', approved: true, published: publishFixture, approvalEvidence: 'Synthetic local fixture approved for engineering tests only; confers no real platform entitlement', entitlement: 'Synthetic local test entitlement. No real account or subscription is sold.', terms: 'Fixture only. Test balance has no cash value. A confirmed failure releases held test purchasing credit.', deliveryType: item.provider === 'PAI' ? 'code' : 'credential', region: 'Synthetic / local test', observedAt: new Date(), stock: 100, catalogCompleteness: 'fixture-complete', inputType: 'quantity' };
+  await prisma.product.upsert({ where: { id: item.id }, create: data, update: { retailMinor: item.retailMinor, supplierMinor: item.supplierMinor, supplierCurrency: item.supplierCurrency, pricingPolicy: item.pricingPolicy, published: publishFixture, observedAt: new Date() } });
+}
+if (hasLiveSnapshot) {
+  const cached = JSON.parse(readFileSync(snapshotPath, 'utf8')) as Record<'pai' | 'graml', { completeness: string; products: Array<{ id: string; name: string; description?: string; category?: string; unitMinor: string; stock: number }> }>;
+  for (const [provider, cat] of [['PAI', cached.pai], ['GRAML', cached.graml]] as const) {
+    for (const item of cat?.products ?? []) {
+      const supplierMinor = BigInt(item.unitMinor);
+      if (supplierMinor <= 0n) continue;
+      const id = `${provider.toLowerCase()}-${item.id}`;
+      const description = item.description?.trim() || item.name;
+      const category = item.category?.trim() || (provider === 'GRAML' ? 'Social Media Accounts' : 'AI Tools');
+      const rowData = {
+        id, slug: id.toLowerCase().replace(/[^a-z0-9-]+/g, '-'), name: item.name, description, category, entitlement: description,
+        terms: 'Delivered privately to your GOOBER account immediately after payment confirmation.',
+        approved: true, published: item.stock > 0, approvalEvidence: `Verified ${provider} catalog offer synced with 15% marketplace markup`,
+        deliveryType: provider === 'PAI' ? 'code' : 'credential', region: 'Global', provider, providerProductId: item.id,
+        providerAccount: 'fixture', providerMode: 'fixture', environment: 'test', retailMinor: markup15(supplierMinor),
+        supplierMinor, supplierCurrency: provider === 'PAI' ? 'USD' : 'NGN', pricingPolicy: 'markup-15',
+        stock: item.stock, observedAt: new Date(), catalogCompleteness: cat.completeness, inputType: 'quantity',
+        apiContractVersion: FIXTURE_PROVIDER_CONTRACT_VERSION,
+      };
+      await prisma.product.upsert({ where: { id }, create: rowData, update: rowData });
+    }
+  }
 }
 await prisma.supplierBalanceObservation.createMany({ data: [
   { apiContractVersion: FIXTURE_PROVIDER_CONTRACT_VERSION, provider: 'PAI', providerAccount: 'fixture', environment: 'test', currency: 'USD', mode: 'fixture', amountMinor: 1000000n, source: 'deterministic-fixture', evidence: 'Synthetic supplier balance; no external verification' },

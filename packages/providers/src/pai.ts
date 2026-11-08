@@ -3,7 +3,18 @@ import { verifyHmac } from './signatures.js';
 import { ProviderError, unknownOutcome, validateConfig, validateRequest, type AdapterConfig, type BalanceResult, type CatalogResult, type SupplierOutcome, type SupplierRequest } from './types.js';
 
 function successful(status: number): void { if (status < 200 || status >= 300) throw new ProviderError('supplier-http-error'); }
-export function parsePaiCatalog(body: unknown): CatalogResult {
+export function inferPaiCategory(name: string, description = ''): string {
+  const hay = `${name} ${description}`.toLowerCase();
+  if (/(claude|chatgpt|gemini|grok|cursor|perplexity|elevenlabs|elevenreader|kling|leonardo|gamma|codex|qwen|muse|minimax|higgsfield|flux|krea|whisper|ai )/i.test(hay)) return 'AI Tools';
+  if (/(adobe|canva|capcut|figma|autocad|autodesk|photoshop|illustrator|premiere|video|design)/i.test(hay)) return 'Design & Video';
+  if (/(vpn|adguard|avira|expressvpn|hotspot shield|ipvanish|nordvpn|proton|surfshark|proxy)/i.test(hay)) return 'VPN & Privacy';
+  if (/(netflix|prime video|crunchyroll|paramount|youtube|disney|hulu|iptv|streaming)/i.test(hay)) return 'Streaming';
+  if (/(apple music|spotify|pocket fm|music|audio|tidal)/i.test(hay)) return 'Music & Audio';
+  if (/(duolingo|coursera|udemy|edx|jetbrains|quizlet|wordwall|edu)/i.test(hay)) return 'Education';
+  if (/(gmail|outlook|google account|steam account|xbox|account)/i.test(hay)) return 'Social Media Accounts';
+  return 'Productivity';
+}
+export function parsePaiCatalog(body: unknown, categoryMap?: Record<string, string>): CatalogResult {
   const data = record(body);
   if (data.currency !== 'USD' || !Array.isArray(data.products) || data.products.length > 10000) throw new ProviderError('malformed-catalog');
   return {completeness: 'unverified', products: data.products.map(value => {
@@ -13,7 +24,12 @@ export function parsePaiCatalog(body: unknown): CatalogResult {
     const minQuantity = integer(item.min_quantity); const maxQuantity = integer(item.max_quantity);
     const pricePer = integer(item.price_per);
     if (minQuantity < 1 || maxQuantity < minQuantity || pricePer < 1) throw new ProviderError('invalid-catalog-bounds');
-    return {id: text(item.service_id, 128), name: text(item.name, 512), inputType, stock: integer(item.stock), unitMinor: money(item.unit_price), currency: 'USD' as const, minQuantity, maxQuantity, pricePer};
+    const id = text(item.service_id, 128);
+    const name = text(item.name, 512);
+    const rawDesc = typeof item.description === 'string' && item.description.trim().length > 0 ? item.description.trim().slice(0, 4000) : name;
+    const mappedCat = categoryMap?.[id];
+    const category = mappedCat && mappedCat !== 'More' ? (mappedCat === 'Accounts' ? 'Social Media Accounts' : mappedCat) : inferPaiCategory(name, rawDesc);
+    return {id, name, description: rawDesc, category, inputType, stock: integer(item.stock), unitMinor: money(item.unit_price), currency: 'USD' as const, minQuantity, maxQuantity, pricePer};
   })};
 }
 export function parsePaiOutcome(body: unknown, request: SupplierRequest, purchase = true): SupplierOutcome {

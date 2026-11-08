@@ -16,8 +16,9 @@ export function requestHeaders(request: Request): Headers {
 export class AuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const allowedOrigins = new Set([environment.origin, ...(process.env.PUBLIC_TUNNEL_ORIGIN ? [new URL(process.env.PUBLIC_TUNNEL_ORIGIN).origin] : [])]);
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
-      if (request.headers.origin !== environment.origin || request.headers['x-goober-csrf'] !== '1') {
+      if (typeof request.headers.origin !== 'string' || !allowedOrigins.has(request.headers.origin) || request.headers['x-goober-csrf'] !== '1') {
         throw new ForbiddenException('Origin and CSRF header required');
       }
       if (!request.is('application/json')) throw new ForbiddenException('JSON body required');

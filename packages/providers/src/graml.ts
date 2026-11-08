@@ -7,12 +7,24 @@ function envelope(body: unknown): Record<string, unknown> {
   if (root.status !== 'success') throw new ProviderError('graml-business-error',true);
   return root;
 }
+function decodeHtmlEntities(input: string): string {
+  return input
+    .replaceAll('&amp;', '&')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#039;', "'")
+    .replaceAll('&apos;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>');
+}
 export function parseGramlCatalog(body: unknown): CatalogResult {
   const root = envelope(body);
   if (!Array.isArray(root.data) || root.data.length > 100) throw new ProviderError('invalid-capped-catalog');
   return {completeness:'capped-unknown',products:root.data.map(value=>{
     const d=record(value);
-    return {id:identifier(d.id),name:text(d.name,512),unitMinor:money(d.price),currency:'NGN' as const,stock:integer(d.stock),inputType:'opaque-account',minQuantity:1,maxQuantity:1,pricePer:1};
+    const rawName = decodeHtmlEntities(text(d.name, 512));
+    const subcat = typeof d.category_name === 'string' && d.category_name.trim().length > 0 ? decodeHtmlEntities(d.category_name.trim()) : undefined;
+    const rawDesc = typeof d.description === 'string' && d.description.trim().length > 0 ? decodeHtmlEntities(d.description.trim()) : rawName;
+    return {id:identifier(d.id),name:rawName,description:rawDesc,category:'Social Media Accounts',...(subcat?{subcategory:subcat}:{}),unitMinor:money(d.price),currency:'NGN' as const,stock:integer(d.stock),inputType:'opaque-account',minQuantity:1,maxQuantity:1,pricePer:1};
   })};
 }
 export function parseGramlOutcome(body: unknown, request: SupplierRequest): SupplierOutcome {

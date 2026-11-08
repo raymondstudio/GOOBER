@@ -28,6 +28,7 @@ export function productDto(p:Product,currency:Currency='NGN',rateSnapshot?:Excha
     provider:p.provider as 'PAI'|'GRAML',
     mode:p.providerMode as ProductDto['mode'],
     published:p.published,
+    stock:p.stock,
     version:p.version,
   };
 }

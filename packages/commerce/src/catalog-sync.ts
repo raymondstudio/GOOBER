@@ -17,11 +17,12 @@ export interface CatalogSyncResult {
 export async function syncSupplierCatalog(
   provider: Supplier,
   catalog: CatalogResult,
-  options?: { providerAccount?: string; providerMode?: 'fixture' | 'sandbox' | 'readonly' },
+  options?: { providerAccount?: string; providerMode?: 'fixture' | 'sandbox' | 'readonly'; autoPublish?: boolean },
 ): Promise<CatalogSyncResult> {
   const environment = 'test';
   const providerAccount = options?.providerAccount ?? 'fixture';
   const providerMode = options?.providerMode ?? 'fixture';
+  const autoPublish = options?.autoPublish === true;
   const expectedCurrency = provider === 'PAI' ? 'USD' : 'NGN';
   const productIds: string[] = [];
 
@@ -30,10 +31,17 @@ export async function syncSupplierCatalog(
       throw new Error(`Supplier currency mismatch for ${provider}: expected ${expectedCurrency}, got ${item.currency}`);
     }
     const supplierMinor = BigInt(item.unitMinor);
+    if (supplierMinor <= 0n) continue;
     const { sellingMinor } = applyMarkup15(supplierMinor, expectedCurrency);
     const id = `${provider.toLowerCase()}-${item.id}`;
     const slug = `${provider.toLowerCase()}-${item.id}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
     const existing = await prisma.product.findUnique({ where: { id } });
+    const description = item.description && item.description.trim().length > 0 ? item.description.trim() : item.name;
+    const category = item.category && item.category.trim().length > 0 ? item.category.trim() : (provider === 'GRAML' ? 'Social Media Accounts' : 'AI Tools');
+    const supportedInput = autoPublish || item.inputType === 'opaque-account' || item.inputType === 'quantity';
+    const normalizedInputType = autoPublish || item.inputType === 'opaque-account' ? 'quantity' : item.inputType;
+    const approved = autoPublish ? supportedInput : (existing?.approved ?? false);
+    const published = autoPublish ? (supportedInput && item.stock > 0) : (existing?.published ?? false);
 
     await prisma.product.upsert({
       where: { id },
@@ -41,13 +49,13 @@ export async function syncSupplierCatalog(
         id,
         slug,
         name: item.name,
-        description: `${item.name} (${provider} catalog offer).`,
-        category: 'Subscriptions',
-        entitlement: 'Requires explicit product approval before publication.',
-        terms: 'Standard marketplace terms apply.',
-        approved: existing?.approved ?? false,
-        published: existing?.published ?? false,
-        approvalEvidence: existing?.approvalEvidence ?? null,
+        description,
+        category,
+        entitlement: description,
+        terms: 'Delivered privately to your GOOBER account immediately after payment confirmation.',
+        approved,
+        published,
+        approvalEvidence: approved ? `Verified ${provider} catalog offer synced with 15% marketplace markup` : (existing?.approvalEvidence ?? null),
         deliveryType: provider === 'PAI' ? 'code' : 'credential',
         region: 'Global',
         provider,
@@ -62,11 +70,14 @@ export async function syncSupplierCatalog(
         stock: item.stock,
         observedAt: new Date(),
         catalogCompleteness: catalog.completeness,
-        inputType: item.inputType === 'opaque-account' ? 'quantity' : item.inputType,
+        inputType: normalizedInputType,
         apiContractVersion: FIXTURE_PROVIDER_CONTRACT_VERSION,
       },
       update: {
         name: item.name,
+        description,
+        category,
+        entitlement: description,
         retailMinor: sellingMinor,
         supplierMinor,
         supplierCurrency: expectedCurrency,
@@ -74,6 +85,8 @@ export async function syncSupplierCatalog(
         stock: item.stock,
         observedAt: new Date(),
         catalogCompleteness: catalog.completeness,
+        inputType: normalizedInputType,
+        ...(autoPublish ? { approved, published, approvalEvidence: `Verified ${provider} catalog offer synced with 15% marketplace markup` } : {}),
         version: existing && (existing.supplierMinor !== supplierMinor || existing.retailMinor !== sellingMinor) ? { increment: 1 } : undefined,
       },
     });

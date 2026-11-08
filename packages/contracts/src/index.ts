@@ -14,6 +14,13 @@ export const fundingInput=z.object({
   orderId:idSchema.optional(),
 }).strict();
 export const paystackVerifyInput=z.object({reference:idSchema}).strict();
+export const directCheckoutInput=z.object({
+  productId:idSchema,
+  quantity:z.literal(1).default(1),
+  currency:currencySchema.default('NGN'),
+  paymentMethod:z.enum(['paystack','wallet']).default('paystack'),
+  callbackUrl:z.string().url().max(1024).optional(),
+}).strict();
 export const exchangeRateInput=z.object({
   rate:z.string().regex(/^(0|[1-9][0-9]{0,9})(\.[0-9]{1,8})?$/).refine(v=>Number(v)>0,'Exchange rate must be positive'),
   reason:z.string().trim().min(5).max(500),
@@ -54,6 +61,7 @@ export interface ProductDto {
   provider:Provider;
   mode:ProviderMode;
   published:boolean;
+  stock?:number;
   version:number;
 }
 export interface MeDto {id:string;email:string;name:string;role:string;environment:Environment}
@@ -132,6 +140,12 @@ export interface ExchangeRateDto {
   updatedAt:string;
 }
 export interface DeliveryDto {products:string[];revealedAt:string}
+export interface DirectCheckoutDto {
+  paymentMethod:'paystack'|'wallet';
+  currency:Currency;
+  order?:OrderDto;
+  paystack?:FundingDto;
+}
 export interface Page<T> {items:T[];nextCursor:string|null}
 export function formatNgn(minor:string):string {const n=BigInt(minor);const absolute=n<0n?-n:n;return (n<0n?'-':'')+'\u20a6'+(absolute/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+(absolute%100n).toString().padStart(2,'0');}
 export function formatUsd(minor:string):string {const n=BigInt(minor);const absolute=n<0n?-n:n;return (n<0n?'-':'')+'$'+(absolute/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+(absolute%100n).toString().padStart(2,'0');}

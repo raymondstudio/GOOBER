@@ -264,7 +264,9 @@ export async function createOrder(
       await tx.$queryRaw`SELECT id FROM "PaymentIntent" WHERE reference=${options.paymentReference} FOR UPDATE`;
       const intent = await tx.paymentIntent.findUnique({ where: { reference: options.paymentReference } });
       const existingOrder = await tx.order.findFirst({ where: { paymentReference: options.paymentReference }, select: { id: true } });
-      if (!intent || intent.ownerId !== ownerId || intent.environment !== environment || intent.currency !== quoteCurrency || intent.amountMinor !== quote.retailMinor || intent.status !== 'CREDITED' || intent.creditedMinor !== quote.retailMinor || existingOrder) {
+      const isDirectPaystack = options.paymentReference.startsWith('paystack-chk-');
+      const amountValid = isDirectPaystack ? (intent && intent.amountMinor >= quote.retailMinor && intent.creditedMinor >= quote.retailMinor) : (intent && intent.amountMinor === quote.retailMinor && intent.creditedMinor === quote.retailMinor);
+      if (!intent || intent.ownerId !== ownerId || intent.environment !== environment || intent.currency !== quoteCurrency || !amountValid || intent.status !== 'CREDITED' || existingOrder) {
         throw new CommerceError('PAYMENT_MISMATCH', 'Payment reference currency, credited status, or amount does not match the quote', 409);
       }
     }
@@ -379,6 +381,50 @@ export async function applyFundingEvent(event: FundingEvent): Promise<void> {
     }
     await markInbox(tx, event.inboxId);
   });
+  if (event.type === 'payment.succeeded' && event.reference.startsWith('paystack-chk-')) {
+    const quoteId = event.reference.slice('paystack-chk-'.length);
+    const currentIntent = await prisma.paymentIntent.findUnique({ where: { reference: event.reference } });
+    if (currentIntent && currentIntent.status === 'CREDITED' && !currentIntent.orderId) {
+      await prisma.quote.updateMany({
+        where: { id: quoteId, ownerId: currentIntent.ownerId, acceptedAt: null },
+        data: { expiresAt: new Date(Date.now() + 120_000) },
+      });
+      const digest = createHash('sha256').update(`auto-order:${event.reference}`).digest('hex');
+      const autoKey = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+      const created = await createOrder(currentIntent.ownerId, quoteId, autoKey, { currency: intentCurrency, paymentReference: event.reference });
+      await prisma.paymentIntent.update({ where: { id: currentIntent.id }, data: { orderId: created.id } });
+    }
+  }
+}
+
+export async function checkoutDirect(
+  ownerId: string,
+  input: { productId: string; quantity?: number; currency?: Currency; paymentMethod?: 'paystack' | 'wallet'; callbackUrl?: string },
+  idempotencyKey: string,
+): Promise<import('@goober/contracts').DirectCheckoutDto> {
+  assertLocal();
+  operation(idempotencyKey);
+  const currency: Currency = input.currency === 'USD' ? 'USD' : 'NGN';
+  const paymentMethod = input.paymentMethod ?? 'paystack';
+  const quote = await createQuote(ownerId, input.productId, input.quantity ?? 1, currency);
+  if (paymentMethod === 'wallet') {
+    const order = await createOrder(ownerId, quote.id, idempotencyKey, { currency });
+    return { paymentMethod: 'wallet', currency, order };
+  }
+  const quoteMinor = BigInt(quote.priceMinor);
+  const minMinor = currency === 'NGN' ? 10000n : 100n;
+  const chargeMinor = quoteMinor < minMinor ? minMinor : quoteMinor;
+  const paystack = await createFundingIntent(ownerId, chargeMinor.toString(), {
+    currency,
+    provider: 'paystack',
+    customReference: `paystack-chk-${quote.id}`,
+    callbackUrl: input.callbackUrl,
+  });
+  return {
+    paymentMethod: 'paystack',
+    currency,
+    paystack,
+  };
 }
 
 async function openReview(tx: Transaction, order: Order, operationId: string, reason: string) {

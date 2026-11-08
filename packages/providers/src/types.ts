@@ -16,6 +16,7 @@ export interface AdapterConfig {
   fetch?: typeof fetch;
   /** Paystack USD acceptance requires merchant account activation; defaults to true in sandbox tests unless explicitly disabled. */
   usdEnabled?: boolean;
+  allowLiveKey?: boolean;
 }
 export interface RequestBudget { acquire(scope: string, recovery: boolean): Promise<void>; observe?(scope: string, remaining: number, resetEpoch: number): Promise<void> }
 export interface SupplierRequest {
@@ -41,7 +42,19 @@ export interface SupplierOutcome {
   reason?: string;
   replay?: boolean;
 }
-export interface SupplierProduct { id: string; name: string; unitMinor: string; currency: SupplierCurrency; stock: number; inputType: string; minQuantity: number; maxQuantity: number; pricePer: number }
+export interface SupplierProduct {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  unitMinor: string;
+  currency: SupplierCurrency;
+  stock: number;
+  inputType: string;
+  minQuantity: number;
+  maxQuantity: number;
+  pricePer: number;
+}
 export interface CatalogResult { products: SupplierProduct[]; completeness: 'unverified' | 'capped-unknown' }
 export interface BalanceResult { balanceMinor: string; currency: SupplierCurrency; mode?: string }
 export interface FixtureReceipt { requestDigest: string; outcome: SupplierOutcome; scenario: FixtureScenario; lookupCount: number }
@@ -65,7 +78,8 @@ export function validateConfig(provider: Supplier | 'PAYSTACK', config: AdapterC
   if (provider !== 'GRAML' && config.mode === 'readonly') throw new ProviderError('unsupported-readonly-mode');
   if (config.mode !== 'fixture') {
     if ((!config.apiKey && provider !== 'GRAML') || !config.budget) throw new ProviderError('external-key-and-budget-required');
-    if (provider !== 'GRAML' && !config.apiKey!.startsWith('sk_test_')) throw new ProviderError('test-key-required');
+    const validKey = config.apiKey!.startsWith('sk_test_') || (provider === 'PAYSTACK' && config.allowLiveKey === true && config.apiKey!.startsWith('sk_live_'));
+    if (provider !== 'GRAML' && !validKey) throw new ProviderError('test-key-required');
   }
   if (config.timeoutMs !== undefined && (!Number.isInteger(config.timeoutMs) || config.timeoutMs < 10 || config.timeoutMs > 30000)) throw new ProviderError('invalid-timeout');
   if (config.maxResponseBytes !== undefined && (!Number.isInteger(config.maxResponseBytes) || config.maxResponseBytes < 128 || config.maxResponseBytes > 2000000)) throw new ProviderError('invalid-body-cap');

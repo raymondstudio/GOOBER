@@ -10,6 +10,7 @@ export interface FundingExpectation {
   amountMinor: string;
   currency: PaystackCurrency;
   environment: 'test';
+  domain?: 'test' | 'live';
   ownerId: string;
   callbackUrl?: string;
   metadata?: Record<string, unknown>;
@@ -71,7 +72,8 @@ export function parsePaystackTransaction(body: unknown, expected: FundingExpecta
   if (envelope && root.status !== true) throw new ProviderError('paystack-envelope-failed');
   const data = envelope ? record(root.data) : root;
   const amountMinor = numericText(data.amount);
-  if (!/^(0|[1-9][0-9]*)$/.test(amountMinor) || data.reference !== expected.reference || data.domain !== 'test' || data.currency !== expected.currency || amountMinor !== expected.amountMinor) {
+  const expectedDomain = expected.domain ?? expected.environment;
+  if (!/^(0|[1-9][0-9]*)$/.test(amountMinor) || data.reference !== expected.reference || data.domain !== expectedDomain || data.currency !== expected.currency || amountMinor !== expected.amountMinor) {
     throw new ProviderError('payment-association-mismatch');
   }
   const supplierStatus = text(data.status, 32);

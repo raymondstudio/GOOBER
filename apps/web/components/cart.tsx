@@ -17,6 +17,38 @@ export function Cart() {
   const items = (catalog ?? []).filter(p => ids.includes(p.id));
   const totalMinor = items.reduce((sum, item) => sum + BigInt(item.priceMinor), 0n).toString();
 
+  async function payWithPaystack() {
+    if (!items.length || pending) return;
+    setPending(true);
+    setCheckoutError('');
+    try {
+      if (items.length === 1) {
+        const res = await api<import('@goober/contracts').DirectCheckoutDto>(
+          '/checkout',
+          { productId: items[0]!.id, quantity: 1, currency, paymentMethod: 'paystack', callbackUrl: window.location.origin + '/checkout/verify' },
+          { 'Idempotency-Key': crypto.randomUUID() },
+        );
+        if (res.paystack?.authorizationUrl) {
+          remove(items[0]!.id);
+          window.location.assign(res.paystack.authorizationUrl);
+          return;
+        }
+      }
+      const minMinor = currency === 'NGN' ? 10000n : 100n;
+      const chargeMinor = BigInt(totalMinor) < minMinor ? minMinor : BigInt(totalMinor);
+      const funded = await api<import('@goober/contracts').FundingDto>(
+        '/wallet/fund/paystack/initialize',
+        { amountMinor: chargeMinor.toString(), currency, callbackUrl: window.location.origin + '/checkout/verify' },
+      );
+      if (funded.authorizationUrl) {
+        window.location.assign(funded.authorizationUrl);
+      }
+    } catch (e) {
+      setCheckoutError(e instanceof Error ? e.message : 'Unable to initialize Paystack checkout.');
+      setPending(false);
+    }
+  }
+
   async function checkoutCart() {
     if (!items.length || pending) return;
     setPending(true);
@@ -87,8 +119,11 @@ export function Cart() {
                 <dd data-testid="cart-total">{formatMoney(totalMinor, currency)}</dd>
               </div>
             </dl>
-            <button type="button" className="button full-width" disabled={pending} onClick={() => void checkoutCart()}>
-              {pending ? 'Processing checkout…' : `Checkout in ${currency} (${formatMoney(totalMinor, currency)})`}
+            <button type="button" className="button full-width" disabled={pending} onClick={() => void payWithPaystack()}>
+              {pending ? 'Processing…' : `Pay with Paystack (${formatMoney(totalMinor, currency)})`}
+            </button>
+            <button type="button" className="button secondary full-width" disabled={pending} onClick={() => void checkoutCart()}>
+              {pending ? 'Processing checkout…' : `Pay with ${currency} balance (${formatMoney(totalMinor, currency)})`}
             </button>
             <button type="button" className="button secondary small" disabled={pending} onClick={clear}>
               Clear cart
