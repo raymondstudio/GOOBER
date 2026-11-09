@@ -1,46 +1,44 @@
 # Implementation Plan
 
 ## [Overview]
-Transform GOOBER into a live, production-ready dual-currency (`NGN` / `USD`) digital marketplace powered by live **P-AI** (`p-ai.world`, 197 products) and **Graml Social** (`gramlsocial.com`, 100 products) catalogs, verbatim supplier descriptions, an exact **15% markup**, **direct Paystack checkout** + **wallet balance checkout**, storefront category sections (**AI Tools**, **Social Media Accounts**, **Design & Video**, **VPN & Privacy**, **Productivity**, **Streaming**, **Education**, **Music & Audio**), Cloudflare tunnel webhook support (`https://nascar-lending-encounter-ink.trycloudflare.com`), and an offline-capable PostgreSQL + JSON snapshot catalog cache.
+Deliver a fully automated, hack-proof Paystack-to-Supplier fulfillment pipeline with an insufficient-balance auto-queue workaround, permanent multi-view `.txt` credential documents and clickable P-AI links in customer orders, a functional Help & Support system with direct Telegram (`@raymondstudi0`) integration and Admin ticket management, reusable GOOBER-branded vector product logos (`ProductBrandArt`) for every brand, and a tactile Apple-grade minimalist storefront redesign with zero AI slop.
 
 ## [Types]
-- `SupplierProduct` (`packages/providers/src/types.ts`): adds `description?: string` and `category?: string`.
-- `DirectCheckoutInput` & `DirectCheckoutDto` (`packages/contracts/src/index.ts`): supports one-click `paystack` or `wallet` checkout in `NGN` or `USD` without requiring a manual two-step quote UI.
+- `VerifyPaystackOptions` (`packages/commerce/src/paystack-funding.ts`): adds `expectedOwnerId?: string`.
+- `SupportStatusInput` (`packages/contracts/src/index.ts`): `{ status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED', operationId: string }`.
+- `BrandVisualSpec` (`apps/web/components/product-brand-art.tsx`): brand key, label, GOOBER corner stamp, and bespoke solid palette.
 
 ## [Files]
 - **New**:
-  - `implementation_plan.md`
-  - `scripts/sync-live-catalog.ts` (`pnpm catalog:sync`)
-  - `packages/db/src/live-catalog-snapshot.json`
-  - `apps/web/app/checkout/verify/page.tsx`
+  - `apps/web/components/product-brand-art.tsx`
 - **Modified**:
-  - `packages/providers/src/types.ts`, `pai.ts`, `graml.ts`, `paystack.ts`
   - `packages/contracts/src/index.ts`
-  - `packages/commerce/src/catalog-sync.ts`, `index.ts`, `paystack-funding.ts`
-  - `packages/db/src/seed.ts`
-  - `apps/api/src/env.ts`, `main.ts`, `auth.guard.ts`, `commerce.controller.ts`, `webhooks.ts`
-  - `apps/web/app/layout.tsx`, `page.tsx`, `components/catalog.tsx`, `product-detail.tsx`, `cart.tsx`, `wallet.tsx`
+  - `packages/commerce/src/paystack-funding.ts`, `packages/commerce/src/index.ts`
+  - `apps/api/src/main.ts`, `apps/api/src/commerce.controller.ts`, `apps/api/src/webhooks.ts`, `apps/api/src/presentation.ts`
+  - `apps/worker/src/processor.ts`, `apps/worker/src/fixture-store.ts`
+  - `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/app/globals.css`
+  - `apps/web/components/catalog.tsx`, `apps/web/components/product-detail.tsx`, `apps/web/components/cart.tsx`, `apps/web/components/order-detail.tsx`, `apps/web/components/support.tsx`, `apps/web/components/operations.tsx`
 
 ## [Functions]
-- `parsePaiCatalog(body: unknown, categoryMap?: Record<string, string>): CatalogResult` (`packages/providers/src/pai.ts`)
-- `parseGramlCatalog(body: unknown): CatalogResult` (`packages/providers/src/graml.ts`)
-- `syncSupplierCatalog(provider: Supplier, catalog: CatalogResult, options?: { autoPublish?: boolean; providerMode?: string }): Promise<CatalogSyncResult>` (`packages/commerce/src/catalog-sync.ts`)
-- `checkoutDirect(ownerId: string, input: DirectCheckoutInput, idempotencyKey: string): Promise<DirectCheckoutDto>` (`packages/commerce/src/index.ts`)
+- `assertSafeCallbackUrl(rawUrl: string | undefined, requireLocalAllowlist?: boolean): string | undefined` (`packages/commerce/src/paystack-funding.ts`)
+- `fulfillOrderInline(orderId: string | null | undefined): Promise<void>` (`apps/api/src/commerce.controller.ts`)
+- `resolveProductBrand(name: string, category: string, provider: string): BrandVisualSpec` (`apps/web/components/product-brand-art.tsx`)
+- `ProductBrandArt({ name, category, provider, variant }): JSX.Element` (`apps/web/components/product-brand-art.tsx`)
 
 ## [Classes]
-- `PaiAdapter`, `GramlAdapter`, `PaystackAdapter` (`packages/providers/src/*`)
+- `CommerceController` (`apps/api/src/commerce.controller.ts`)
 
 ## [Dependencies]
-- None added; uses existing locked workspace dependencies.
+- None added; 100% native SVG, CSS spring physics, and existing workspace packages.
 
 ## [Testing]
-- Offline snapshot seeding in `packages/db/src/seed.ts` + live sync via `pnpm catalog:sync`.
-- Full verification via `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, and PostgreSQL integration tests.
+- Unit tests (`pnpm test:unit`), PostgreSQL integration tests (`tests/integration/commerce.test.ts`), `pnpm lint`, `pnpm typecheck`, and `pnpm graphify:update`.
 
 ## [Implementation Order]
 1. Save `implementation_plan.md`.
-2. Update `packages/providers` (`types.ts`, `pai.ts`, `graml.ts`, `paystack.ts`) for verbatim descriptions, categories, and live/test key support.
-3. Create and run `scripts/sync-live-catalog.ts` (`pnpm catalog:sync`) to pull all 197 P-AI + 100 Graml products into `packages/db/src/live-catalog-snapshot.json` and PostgreSQL with 15% markup.
-4. Implement one-click Paystack & Balance checkout (`checkoutDirect`), inline webhook/order fulfillment, and Cloudflare tunnel origin support (`https://nascar-lending-encounter-ink.trycloudflare.com`).
-5. Update Next.js storefront (`layout.tsx`, `page.tsx`, `catalog.tsx`, `product-detail.tsx`, `cart.tsx`, `wallet.tsx`, `/checkout/verify`) to remove all test/quote indicators and showcase the category sections and verbatim descriptions.
+2. Implement backend security hardening (`SEC-01` through `SEC-05`), inline automated fulfillment, and admin support status management.
+3. Upgrade `apps/web/components/order-detail.tsx` and `apps/worker/src/fixture-store.ts` for permanent multi-visit `.txt` credential docs and clickable P-AI links.
+4. Upgrade `apps/web/components/support.tsx`, `apps/web/components/operations.tsx`, and `apps/web/app/layout.tsx` with direct Telegram (`@raymondstudi0`) contact and Admin support ticket controls.
+5. Create `apps/web/components/product-brand-art.tsx` and redesign `page.tsx`, `catalog.tsx`, `product-detail.tsx`, `cart.tsx`, and `globals.css` with Apple/Swiss tactile editorial craft and spring motion.
 6. Run `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, integration tests, and `pnpm graphify:update`.
+

@@ -6,6 +6,7 @@ import {z} from 'zod';
 import {prisma,Prisma} from '@goober/db';
 import {seal} from '@goober/commerce';
 import {verifyHmac,parsePaiCallback,parsePaystackCallback,losslessBody} from '@goober/providers';
+import {processInbox,processOutbox} from '../../worker/src/processor.js';
 import {environment} from './env.js';
 const funding=z.object({eventId:z.string().min(1).max(128),type:z.enum(['payment.succeeded','payment.reversed','payment.failed']),environment:z.literal('test'),reference:z.string().min(1).max(128),amountMinor:z.string().regex(/^[1-9][0-9]{0,18}$/),currency:z.enum(['NGN','USD']),provider:z.literal('fixture').optional(),providerAccount:z.literal('fixture').optional()}).strict();
 const probe=z.object({eventId:z.string().min(1).max(128),type:z.literal('skeleton.probe'),environment:z.literal('test')}).strict();
@@ -37,5 +38,9 @@ const intentCurrency=(intent.currency==='USD'?'USD':'NGN') as 'NGN'|'USD';
 const expectedDomain=secret.startsWith('sk_live_')&&body?.data?.domain==='live'?'live':'test';
 let observed;try{observed=parsePaystackCallback(req.rawBody,header(req,'x-paystack-signature'),secret,{reference,ownerId:intent.ownerId,amountMinor:intent.amountMinor.toString(),currency:intentCurrency,environment:'test',domain:expectedDomain});}catch{throw new BadRequestException('Paystack callback does not match the server payment intent');}
 const eventType=observed.status==='success'?'payment.succeeded':observed.status==='reversed'?'payment.reversed':'payment.failed';
-await saveInbox({provider:'paystack',providerAccount:'sandbox',environment:'test',eventId:`${observed.event??'charge.success'}:${observed.transactionId}`,eventType,payloadDigest:createHash('sha256').update(req.rawBody).digest('hex'),payload:{eventId:`${observed.event??'charge.success'}:${observed.transactionId}`,type:eventType,environment:'test',reference,amountMinor:observed.amountMinor,currency:observed.currency,provider:'paystack',providerAccount:'sandbox',processorTransactionId:observed.transactionId},encryptedPayload:seal(observed,{orderId:intent.id,provider:'paystack',environment:'test'}) as unknown as Prisma.InputJsonObject,status:'PENDING'});return {accepted:true};}
+const inboxRow=await saveInbox({provider:'paystack',providerAccount:'sandbox',environment:'test',eventId:`${observed.event??'charge.success'}:${observed.transactionId}`,eventType,payloadDigest:createHash('sha256').update(req.rawBody).digest('hex'),payload:{eventId:`${observed.event??'charge.success'}:${observed.transactionId}`,type:eventType,environment:'test',reference,amountMinor:observed.amountMinor,currency:observed.currency,provider:'paystack',providerAccount:'sandbox',processorTransactionId:observed.transactionId},encryptedPayload:seal(observed,{orderId:intent.id,provider:'paystack',environment:'test'}) as unknown as Prisma.InputJsonObject,status:'PENDING'});
+await processInbox(inboxRow.id);
+const refreshedIntent=await prisma.paymentIntent.findUnique({where:{reference}});
+if(refreshedIntent?.orderId){const out=await prisma.outbox.findMany({where:{aggregateId:refreshedIntent.orderId,status:'PENDING'},select:{id:true},take:5});for(const r of out)await processOutbox(r.id);}
+return {accepted:true};}
 }

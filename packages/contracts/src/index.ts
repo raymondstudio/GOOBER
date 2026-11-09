@@ -32,6 +32,7 @@ export const refundOrderInput=z.object({
   operationId:z.string().uuid(),
 }).strict();
 export const supportInput=z.object({orderId:idSchema.optional(),message:z.string().trim().min(5).max(2000)}).strict();
+export const supportStatusInput=z.object({status:z.enum(['OPEN','IN_PROGRESS','RESOLVED']),operationId:z.string().uuid()}).strict();
 export const reviewInput=z.object({operationId:z.string().uuid(),version:z.number().int().nonnegative(),resolution:z.enum(['delivered','failed','merchant-loss']),reason:z.string().trim().min(10).max(1000),delivery:z.array(z.string().min(1).max(4096)).max(1).optional()}).strict();
 export const approvalInput=z.object({operationId:z.string().uuid(),version:z.number().int().nonnegative(),published:z.boolean(),reason:z.string().min(10).max(1000)}).strict();
 export type Environment='test'|'live';
@@ -94,6 +95,9 @@ export interface OrderDto {
   id:string;
   productId:string;
   productName:string;
+  productDescription?:string;
+  productCategory?:string;
+  provider?:Provider;
   fulfillmentState:string;
   moneyState:string;
   totalMinor:string;

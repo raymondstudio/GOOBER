@@ -27,6 +27,29 @@ export interface CreateFundingOptions {
   customAdapter?: PaystackAdapter;
 }
 
+export function assertSafeCallbackUrl(rawUrl: string | undefined, enforceLocalOrigins = false): string | undefined {
+  if (!rawUrl) return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new CommerceError('INVALID_CALLBACK_URL', 'Callback URL is malformed', 400);
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+    throw new CommerceError('INVALID_CALLBACK_URL', 'Callback URL protocol or credentials are not permitted', 400);
+  }
+  if (enforceLocalOrigins) {
+    const allowedOrigins = new Set([
+      new URL(process.env.APP_ORIGIN ?? 'http://127.0.0.1:3000').origin,
+      ...(process.env.PUBLIC_TUNNEL_ORIGIN ? [new URL(process.env.PUBLIC_TUNNEL_ORIGIN).origin] : []),
+    ]);
+    if (!allowedOrigins.has(parsed.origin) || !['/checkout/verify', '/wallet'].includes(parsed.pathname)) {
+      throw new CommerceError('UNTRUSTED_CALLBACK_URL', 'Callback URL must match a trusted GOOBER origin and verification path', 400);
+    }
+  }
+  return parsed.toString();
+}
+
 export function defaultPaystackAdapter(): PaystackAdapter {
   const apiKey = process.env.PAYSTACK_SECRET_KEY ?? process.env.PAYSTACK_TEST_SECRET ?? 'sk_test_local_sandbox';
   const usdEnabled = process.env.PAYSTACK_USD_ENABLED !== 'false';
@@ -75,6 +98,7 @@ export async function initializePaystackFunding(
   const user = await prisma.user.findUnique({ where: { id: ownerId }, select: { email: true } });
   const email = options?.email ?? user?.email ?? 'customer@example.test';
   const reference = options?.customReference ?? `paystack-${randomUUID()}`;
+  const safeCallbackUrl = assertSafeCallbackUrl(options?.callbackUrl ?? process.env.PAYSTACK_CALLBACK_URL, !options?.customAdapter);
   const intent = await prisma.paymentIntent.create({
     data: { ownerId, environment, reference, amountMinor: value, currency, provider: 'paystack', providerAccount: 'sandbox', paymentMode: 'sandbox', orderId: options?.orderId ?? null },
   });
@@ -87,7 +111,7 @@ export async function initializePaystackFunding(
         currency,
         environment: 'test',
         ownerId,
-        callbackUrl: options?.callbackUrl ?? process.env.PAYSTACK_CALLBACK_URL,
+        callbackUrl: safeCallbackUrl,
         metadata: { ownerId, intentId: intent.id, currency, amountMinor: value.toString(), ...(options?.orderId ? { orderId: options.orderId } : {}) },
       },
       email,
@@ -139,11 +163,11 @@ export async function initializePaystackFunding(
 export async function verifyPaystackPaymentInternal(
   reference: string,
   applyEvent: (event: FundingEventInput) => Promise<void>,
-  options?: { customAdapter?: PaystackAdapter },
+  options?: { customAdapter?: PaystackAdapter; expectedOwnerId?: string },
 ): Promise<FundingDto> {
   const environment = 'test';
   const intent = await prisma.paymentIntent.findUnique({ where: { reference } });
-  if (!intent || intent.environment !== environment || intent.provider !== 'paystack') {
+  if (!intent || intent.environment !== environment || intent.provider !== 'paystack' || (options?.expectedOwnerId && intent.ownerId !== options.expectedOwnerId)) {
     throw new CommerceError('NOT_FOUND', 'Paystack payment intent was not found', 404);
   }
   const currency = (intent.currency === 'USD' ? 'USD' : 'NGN') as Currency;

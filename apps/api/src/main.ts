@@ -24,7 +24,7 @@ export async function bootstrap(){
  const tunnelHost=process.env.PUBLIC_TUNNEL_ORIGIN?new URL(process.env.PUBLIC_TUNNEL_ORIGIN).host:null;
  const allowedHosts=new Set([new URL(environment.origin).host,'127.0.0.1:'+port,...(tunnelHost?[tunnelHost]:[])]);
  app.use((request:Request,response:Response,next:NextFunction)=>{
- response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('X-Frame-Options','DENY');response.setHeader('Referrer-Policy','no-referrer');
+ response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('X-Frame-Options','DENY');response.setHeader('Referrer-Policy','no-referrer');response.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=(), payment=()');response.setHeader('Content-Security-Policy',"frame-ancestors 'none'; base-uri 'self'");
  if(typeof request.headers.host!=='string'||!allowedHosts.has(request.headers.host)){response.status(400).json({error:{code:'INVALID_HOST',message:'Request host is not allowed'}});return;}next();});
  app.useGlobalFilters(new SafeErrorFilter());app.enableShutdownHooks();await app.listen(port,'127.0.0.1');return app;
 }

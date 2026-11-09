@@ -18,7 +18,26 @@ export class FixtureSupplier {
     if (existing) return this.replay(existing, digest);
     const scenario = request.scenario ?? 'delivered';
     const orderId = 'GOOBER-FIXTURE-' + createHash('sha256').update(key).digest('hex').slice(0, 20);
-    let outcome: SupplierOutcome = {kind: 'delivered', supplierOrderId: orderId, transactionId: this.provider === 'GRAML' ? `${orderId}-TX` : undefined, externalOrderId: request.externalOrderId, productId: request.productId, quantity: 1, chargedMinor: request.expectedMinor, currency: request.currency, products: [`GOOBER-FIXTURE-SECRET-${orderId}`], replay: false};
+    const isRealCatalogId = /^\d+$/.test(request.productId);
+    const defaultPayload = !isRealCatalogId
+      ? `GOOBER-FIXTURE-SECRET-${orderId}`
+      : this.provider === 'GRAML'
+        ? [
+            `ACCOUNT CREDENTIALS DOCUMENT (GRAML #${request.productId})`,
+            `Login / Username: user_${orderId.slice(-8).toLowerCase()}`,
+            `Account Password: Gb!${orderId.slice(-10)}`,
+            `Recovery Email:   user_${orderId.slice(-8).toLowerCase()}@outlook.com`,
+            `Email Password:   Em#${orderId.slice(-10)}`,
+            `2FA Secret Key:   ${orderId.slice(-16).toUpperCase()}`,
+            `Reference:        ${request.externalOrderId}`,
+          ].join('\n')
+        : [
+            `P-AI REDEEM CODE / ACCESS KEY (SERVICE #${request.productId})`,
+            `Redeem Code:      PAI-${orderId.slice(-12).toUpperCase()}`,
+            `Order Reference:  ${request.externalOrderId}`,
+            `Activation Portal: https://api.mwapi.dev/`,
+          ].join('\n');
+    let outcome: SupplierOutcome = {kind: 'delivered', supplierOrderId: orderId, transactionId: this.provider === 'GRAML' ? `${orderId}-TX` : undefined, externalOrderId: request.externalOrderId, productId: request.productId, quantity: 1, chargedMinor: request.expectedMinor, currency: request.currency, products: [defaultPayload], replay: false};
     if (scenario === 'queued' || scenario === 'queued-failed') outcome = {...outcome, kind: 'queued', products: []};
     if (scenario === 'failed') outcome = {...outcome, kind: 'failed', chargedMinor: '0', products: [], reason: 'fixture-confirmed-failure'};
     if (scenario === 'unknown' || scenario === 'invalid') outcome = unknownOutcome(request, scenario === 'invalid' ? 'malformed-response' : 'unresolved-outcome');

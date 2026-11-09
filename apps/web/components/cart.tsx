@@ -6,6 +6,7 @@ import { formatMoney } from '@goober/contracts';
 import { api } from './api';
 import { Empty, ErrorNotice, Loading, PageTitle, useResource } from './shared';
 import { useCart, useCurrency } from './currency';
+import { ProductBrandArt } from './product-brand-art';
 
 export function Cart() {
   const [currency] = useCurrency();
@@ -85,12 +86,15 @@ export function Cart() {
           <section className="record-list" aria-label="Cart items">
             {items.map(item => (
               <article className="order-row" key={item.id}>
-                <div>
-                  <span className="tag">{item.category}</span>
-                  <h3>
-                    <Link href={'/products/' + encodeURIComponent(item.id)}>{item.name}</Link>
-                  </h3>
-                  <p>{item.description}</p>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                  <ProductBrandArt name={item.name} category={item.category} provider={item.provider} variant="compact" />
+                  <div>
+                    <span className="tag">{item.category}</span>
+                    <h3>
+                      <Link href={'/products/' + encodeURIComponent(item.id)}>{item.name}</Link>
+                    </h3>
+                    <p>{item.description}</p>
+                  </div>
                 </div>
                 <div className="order-summary">
                   <strong className="price" data-testid={`cart-price-${item.id}`}>

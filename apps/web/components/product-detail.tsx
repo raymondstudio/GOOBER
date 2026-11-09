@@ -6,6 +6,7 @@ import {formatMoney} from '@goober/contracts';
 import {api} from './api';
 import {DateLabel,ErrorNotice,Loading,useResource} from './shared';
 import {useCart,useCurrency} from './currency';
+import {ProductBrandArt} from './product-brand-art';
 
 export function ProductDetail({id}:{id:string}) {
   const [currency] = useCurrency();
@@ -73,6 +74,7 @@ export function ProductDetail({id}:{id:string}) {
     <Link className="text-link breadcrumb" href="/">← Back to the store</Link>
     <div className="product-detail">
       <div className="product-story">
+        <div style={{marginBottom:'22px'}}><ProductBrandArt name={product.name} category={product.category} provider={product.provider} variant="hero"/></div>
         <p className="product-category">{product.category}{typeof product.stock === 'number' ? ` · ${product.stock} in stock` : ''}</p>
         <h1>{product.name}</h1>
         <p className="lede" style={{whiteSpace:'pre-line'}}>{product.description}</p>

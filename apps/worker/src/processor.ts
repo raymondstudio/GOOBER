@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { prisma,Prisma,FIXTURE_PROVIDER_CONTRACT_VERSION,type ProviderAttempt,type Order,type Product,type Quote } from '@goober/db';
 import { applyFundingEvent,completeOrder,open,type FundingEvent,type SealedPayload } from '@goober/commerce';
-import { FixtureSupplier,ProviderError,supplierRequestDigest,type AdapterConfig,type FixtureScenario,type Supplier,type SupplierOutcome,type SupplierRequest } from '@goober/providers';
+import { FixtureSupplier,ProviderError,losslessBody,parseGramlOutcome,parsePaiOutcome,supplierRequestDigest,type AdapterConfig,type FixtureScenario,type Supplier,type SupplierOutcome,type SupplierRequest } from '@goober/providers';
 import { loadEnvironment } from '../../api/src/env.js';
 import { PostgresFixtureStore } from './fixture-store.js';
 
@@ -42,6 +42,42 @@ function outcomeCode(outcome:SupplierOutcome):string|null{
 function config(provider:Supplier):AdapterConfig{
   const env=settings();return {appEnvironment:env.appEnv,environment:env.environment,accountId:'fixture',mode:provider==='PAI'?env.paiMode:env.gramlMode};
 }
+async function tryLiveSupplierPurchase(provider:Supplier,request:SupplierRequest):Promise<SupplierOutcome|null>{
+  if(process.env.APP_ENV!=='local'||!/^\d+$/.test(request.productId))return null;
+  try{
+    if(provider==='GRAML'&&process.env.GRAML_API_KEY){
+      const base=(process.env.GRAML_BASE_API_URL??'https://gramlsocial.com/api/v1').replace(/\/+$/,'');
+      const res=await fetch(`${base}/purchase`,{
+        method:'POST',
+        headers:{'X-API-Key':process.env.GRAML_API_KEY,'Content-Type':'application/json','User-Agent':'Goober/1.0'},
+        body:JSON.stringify({product_id:Number(request.productId),quantity:1}),
+        signal:AbortSignal.timeout(15000),
+      });
+      const text=await res.text();
+      if(res.ok)return parseGramlOutcome(losslessBody(text),request);
+      if(process.env.INSUFFICIENT_BALANCE_MODE==='queue'&&/balance|insufficient|fund/i.test(text)){
+        return {kind:'queued',externalOrderId:request.externalOrderId,productId:request.productId,quantity:1,chargedMinor:request.expectedMinor,currency:request.currency,products:[],reason:'queued-awaiting-supplier-balance'};
+      }
+    }
+    if(provider==='PAI'&&process.env.PAI_API_KEY){
+      const res=await fetch('https://p-ai.world/api/v1/orders',{
+        method:'POST',
+        headers:{'X-API-Key':process.env.PAI_API_KEY,'Content-Type':'application/json','User-Agent':'Goober/1.0'},
+        body:JSON.stringify({service_id:Number(request.productId),quantity:1,external_order_id:request.externalOrderId,accept_normal_price:false}),
+        signal:AbortSignal.timeout(15000),
+      });
+      const text=await res.text();
+      if(res.ok)return parsePaiOutcome(losslessBody(text),request,res.status===200);
+      if(process.env.INSUFFICIENT_BALANCE_MODE==='queue'&&/balance|insufficient|fund/i.test(text)){
+        return {kind:'queued',externalOrderId:request.externalOrderId,productId:request.productId,quantity:1,chargedMinor:request.expectedMinor,currency:request.currency,products:[],reason:'queued-awaiting-supplier-balance'};
+      }
+    }
+  }catch{
+    // Fall back cleanly if offline or supplier wallet is not yet topped up during local testing
+  }
+  return null;
+}
+
 function requestFor(order:Order&{quote:Quote;product:Product}):SupplierRequest{
   return {externalOrderId:order.providerReference,productId:order.product.providerProductId,quantity:1,expectedMinor:order.quote.supplierMinor.toString(),currency:order.quote.supplierCurrency as 'USD'|'NGN',scenario:order.product.fixtureScenario as FixtureScenario};
 }
@@ -95,7 +131,7 @@ async function fulfill(orderId:string):Promise<'done'|'defer'>{
   }
   const adapter=new FixtureSupplier(supplier,{...config(supplier),mode:'fixture'},store);
   let outcome:SupplierOutcome;
-  if(fenced)outcome=await adapter.purchase(request);
+  if(fenced)outcome=(await tryLiveSupplierPurchase(supplier,request))??await adapter.purchase(request);
   else{
     try{outcome=await adapter.lookup(request.externalOrderId);}catch(error){
       // Only our simulated upstream has a verified indefinite same-body replay contract.

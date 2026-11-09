@@ -115,7 +115,7 @@ async function markInbox(tx: Transaction, inboxId?: string) {
 function walletDto(wallet: Wallet): WalletDto {
   return { availableMinor: wallet.availableMinor.toString(), reservedMinor: wallet.reservedMinor.toString(), currency: (wallet.currency === 'USD' ? 'USD' : 'NGN') as Currency, frozen: wallet.frozen, environment: 'test' };
 }
-export function orderDto(order: Order & { product?: Pick<Product, 'name'> }): OrderDto {
+export function orderDto(order: Order & { product?: Pick<Product, 'name' | 'description' | 'category'> }): OrderDto {
   const currency = (order.customerCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
   const paymentCurrency = (order.paymentCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
   const supplierCurrency = (order.supplierCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
@@ -123,6 +123,9 @@ export function orderDto(order: Order & { product?: Pick<Product, 'name'> }): Or
     id: order.id,
     productId: order.productId,
     productName: order.product?.name ?? 'Digital product',
+    productDescription: order.product?.description,
+    productCategory: order.product?.category,
+    provider: (order.provider === 'GRAML' ? 'GRAML' : 'PAI'),
     fulfillmentState: order.fulfillment,
     moneyState: order.moneyStatus,
     totalMinor: order.reservedMinor.toString(),
@@ -325,7 +328,7 @@ export async function createFundingIntent(ownerId: string, amountMinor: string, 
   return { id: intent.id, reference: intent.reference, amountMinor: intent.amountMinor.toString(), currency, mode: 'fixture', status: intent.status };
 }
 
-export async function verifyPaystackPayment(reference: string, options?: { customAdapter?: import('@goober/providers').PaystackAdapter }): Promise<FundingDto> {
+export async function verifyPaystackPayment(reference: string, options?: { customAdapter?: import('@goober/providers').PaystackAdapter; expectedOwnerId?: string }): Promise<FundingDto> {
   assertLocal();
   return verifyPaystackPaymentInternal(reference, applyFundingEvent, options);
 }

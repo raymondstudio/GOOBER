@@ -309,3 +309,26 @@ input::placeholder,textarea::placeholder{color:#687970;opacity:1}
 .currency-selector .button.small{padding:7px 11px;min-height:36px;font-size:12px}
 .product-bottom .store-actions{margin:0;gap:10px;align-items:center;flex-wrap:wrap}
 
+/* M4 Apple-Grade Tactile Craft & Reusable GOOBER Branded Product Artwork (Zero Frosted Glass / Zero AI Slop) */
+.button,a.button{transition:transform .14s cubic-bezier(.22,1,.36,1),background-color .16s ease,border-color .16s ease,color .16s ease}
+.button:active,a.button:active{transform:scale(.98)}
+.product-grid .catalog-product{overflow:hidden;transition:transform .28s cubic-bezier(.22,1,.36,1),border-color .22s ease,box-shadow .28s cubic-bezier(.22,1,.36,1)}
+.product-grid .catalog-product:hover{transform:translateY(-3px);border-color:var(--green);box-shadow:0 14px 32px -16px rgba(15,23,21,.16)}
+.goober-brand-tile{display:flex;flex-direction:column;justify-content:space-between;padding:14px 18px;user-select:none;position:relative;border-bottom:1px solid rgba(255,255,255,.12)}
+.goober-brand-card{height:132px;width:100%}
+.goober-brand-hero{height:168px;width:100%;border-radius:10px;padding:18px 22px}
+.goober-brand-compact{height:84px;width:128px;border-radius:8px;padding:10px 12px;flex-shrink:0}
+.goober-brand-topline,.goober-brand-bottomline{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.goober-brand-stamp{font-size:9px;font-weight:750;letter-spacing:.14em;opacity:.86;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.goober-brand-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.goober-brand-center{display:flex;align-items:center;gap:12px;margin:auto 0}
+.goober-brand-svg{width:40px;height:40px;flex-shrink:0}
+.goober-brand-hero .goober-brand-svg{width:52px;height:52px}
+.goober-brand-compact .goober-brand-svg{width:28px;height:28px}
+.goober-brand-label{font-size:15px;font-weight:800;letter-spacing:.06em}
+.goober-brand-hero .goober-brand-label{font-size:20px}
+.goober-brand-compact .goober-brand-label{font-size:11px}
+.goober-brand-monogram{font-family:var(--display);font-size:15px;font-weight:700;opacity:.92}
+.goober-brand-seal{font-size:9px;font-weight:700;letter-spacing:.1em;opacity:.78;padding:2px 6px;border:1px solid rgba(255,255,255,.24);border-radius:4px}
+
+

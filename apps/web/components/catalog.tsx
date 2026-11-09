@@ -5,6 +5,7 @@ import type {ProductDto} from '@goober/contracts';
 import {formatMoney} from '@goober/contracts';
 import {Empty,Loading,useResource} from './shared';
 import {useCart,useCurrency} from './currency';
+import {ProductBrandArt} from './product-brand-art';
 
 const pageSize = 24;
 const PREFERRED_CATEGORIES = ['AI Tools','Social Media Accounts','Design & Video','VPN & Privacy','Productivity','Streaming','Education','Music & Audio'];
@@ -61,6 +62,7 @@ export function Catalog() {
         const inCart = cartIds.includes(product.id);
         const firstLine = product.description.split('\n').find(l => l.trim().length > 0) ?? product.description;
         return <article className="product-card catalog-product" key={product.id}>
+          <ProductBrandArt name={product.name} category={product.category} provider={product.provider} variant="card"/>
           <div className="product-content"><div className="card-topline"><span className="product-category">{product.category}</span><span className="product-mode">{typeof product.stock === 'number' ? `${product.stock} in stock` : product.provider}</span></div>
             <h3><Link href={'/products/'+encodeURIComponent(product.id)}>{product.name}</Link></h3>
             <p>{firstLine.length > 180 ? firstLine.slice(0,180) + '…' : firstLine}</p>
