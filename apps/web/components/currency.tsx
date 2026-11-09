@@ -43,24 +43,26 @@ export function useCurrency(): [Currency, (next: Currency) => void] {
 export function CurrencySelector() {
   const [currency, setCurrency] = useCurrency();
   return (
-    <div className="currency-selector" role="group" aria-label="Display currency">
+    <div className="currency-switch" role="group" aria-label="Display currency">
       <button
         type="button"
-        className={`button small ${currency === 'NGN' ? '' : 'secondary'}`}
+        className={`currency-switch-btn ${currency === 'NGN' ? 'active' : ''}`}
         aria-pressed={currency === 'NGN'}
         data-testid="currency-ngn"
         onClick={() => setCurrency('NGN')}
       >
-        NGN (₦)
+        <span>NGN</span>
+        <span className="currency-switch-sym">(₦)</span>
       </button>
       <button
         type="button"
-        className={`button small ${currency === 'USD' ? '' : 'secondary'}`}
+        className={`currency-switch-btn ${currency === 'USD' ? 'active' : ''}`}
         aria-pressed={currency === 'USD'}
         data-testid="currency-usd"
         onClick={() => setCurrency('USD')}
       >
-        USD ($)
+        <span>USD</span>
+        <span className="currency-switch-sym">($)</span>
       </button>
     </div>
   );
