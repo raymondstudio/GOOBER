@@ -1,27 +1,32 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import {Catalog} from '../components/catalog';
-import {ProductBrandArt} from '../components/product-brand-art';
 
 export default function Page() {
   return <>
     <section className="store-intro" aria-labelledby="store-title">
-      <div>
+      <div className="store-intro-primary">
         <p className="eyebrow" style={{marginBottom:'14px'}}>GOOBER DIGITAL MARKETPLACE · NGN &amp; USD</p>
         <h1 id="store-title">Digital tools, with the details up front.</h1>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'10px',marginTop:'24px',maxWidth:'420px'}} aria-hidden="true">
-          <ProductBrandArt name="Claude AI API" category="AI Tools" provider="PAI" variant="compact"/>
-          <ProductBrandArt name="Instagram Accounts" category="Social Media Accounts" provider="GRAML" variant="compact"/>
-          <ProductBrandArt name="ChatGPT Plus OpenAI" category="AI Tools" provider="PAI" variant="compact"/>
-          <ProductBrandArt name="Facebook Account" category="Social Media Accounts" provider="GRAML" variant="compact"/>
-        </div>
-      </div>
-      <div className="store-intro-copy">
-        <p>Instant access to AI subscriptions, creative suites, privacy VPNs, streaming plans, and verified social media accounts in NGN (₦) and USD ($). Pay securely with Paystack or your GOOBER wallet balance and receive permanent `.txt` credential docs and access links in your Orders.</p>
+        <p className="store-intro-lead">
+          Instant access to AI subscriptions, creative suites, privacy VPNs, streaming plans, and verified social media accounts in NGN (₦) and USD ($). Pay securely with Paystack or your GOOBER wallet balance and receive permanent `.txt` credential docs and access links in your Orders.
+        </p>
         <div className="store-actions">
           <Link className="button" href="#catalog">Explore the store</Link>
           <Link className="button secondary" href="/sign-in?action=create">Create account</Link>
         </div>
         <p className="returning-customer">Already have an account? <Link href="/sign-in">Sign in</Link> · Need help? <a href="https://t.me/raymondstudi0" target="_blank" rel="noopener noreferrer">Telegram @raymondstudi0 ↗</a></p>
+      </div>
+
+      <div className="store-intro-media" aria-hidden="true">
+        <Image
+          src="/gooble-hero.png"
+          alt="GOOBER digital tools, AI subscriptions and verified accounts"
+          width={517}
+          height={483}
+          priority
+          className="store-intro-image"
+        />
       </div>
     </section>
     <Catalog/>

@@ -54,7 +54,7 @@ function Glyph({ glyph, accent }: { glyph: string; accent: string }) {
   return <><rect x="13" y="13" width="22" height="22" rx="5" stroke="currentColor" strokeWidth="2.2" fill="none" /><path d="M18 24h12M24 18v12" stroke={accent} strokeWidth="2.2" strokeLinecap="round" /></>;
 }
 
-export function ProductBrandArt({ name, category = '', provider = 'PAI', variant = 'card' }: { name: string; category?: string; provider?: string; variant?: 'card' | 'hero' | 'compact' }) {
+export function ProductBrandArt({ name, category = '', provider = 'PAI', variant = 'card' }: { name: string; category?: string; provider?: string; variant?: 'card' | 'hero' | 'compact' | 'showcase' }) {
   const s = resolveProductBrand(name, category, provider);
   return (
     <div className={`goober-brand-tile goober-brand-${variant}`} style={{ background: s.bg, color: s.fg }} aria-hidden="true">

@@ -44,7 +44,7 @@ export function Catalog() {
 
   return <section id="catalog" className="catalog-section" aria-labelledby="catalog-title">
     <div className="catalog-heading"><div><h2 id="catalog-title">Browse the store.</h2><p>Every product starts with its fixed price in {currency} ({currency === 'USD' ? '$' : '₦'}) and full supplier details.</p></div><span className="catalog-mode">Live catalog · {currency}</span></div>
-    {categories.length > 1 && <div className="store-actions" role="group" aria-label="Storefront sections" style={{flexWrap:'wrap',gap:'8px',marginBottom:'16px'}}>
+    {categories.length > 1 && <div className="catalog-category-bar" role="group" aria-label="Storefront sections">
       <button type="button" className={category === 'all' ? 'button small' : 'button secondary small'} onClick={() => changeFilters(search,'all')}>All ({(data ?? []).length})</button>
       {categories.map(cat => <button key={cat} type="button" className={category === cat ? 'button small' : 'button secondary small'} onClick={() => changeFilters(search,cat)}>{cat} ({(data ?? []).filter(p => p.category === cat).length})</button>)}
     </div>}
