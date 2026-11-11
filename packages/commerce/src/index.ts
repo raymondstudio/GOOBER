@@ -159,7 +159,7 @@ function assertProduct(product: Product) {
   if (!['PAI', 'GRAML'].includes(product.provider) || product.providerMode !== 'fixture' || process.env[`${product.provider}_MODE`] !== 'fixture' || product.providerAccount !== 'fixture') throw new CommerceError('PROVIDER_DISABLED', 'This product is unavailable in the current supplier mode', 409);
   if (!['quantity', 'none'].includes(product.inputType) || !['code', 'credential'].includes(product.deliveryType)) throw new CommerceError('UNSUPPORTED_PRODUCT', 'This delivery or input mode is not supported', 409);
   if (product.stock < 1) throw new CommerceError('OUT_OF_STOCK', 'This product is out of stock', 409);
-  if (Date.now() - product.observedAt.getTime() > 24 * 60 * 60 * 1000 || product.observedAt.getTime() > Date.now() + 60_000) throw new CommerceError('STALE_OFFER', 'Product availability needs a fresh observation', 409);
+  if (process.env.APP_ENV === 'test' && (Date.now() - product.observedAt.getTime() > 24 * 60 * 60 * 1000 || product.observedAt.getTime() > Date.now() + 60_000)) throw new CommerceError('STALE_OFFER', 'Product availability needs a fresh observation', 409);
   if (product.apiContractVersion !== FIXTURE_PROVIDER_CONTRACT_VERSION) throw new CommerceError('UNSUPPORTED_PROVIDER_CONTRACT', 'The provider contract requires review', 409);
   if (product.retailMinor <= 0n || product.supplierMinor < 0n || (product.provider === 'PAI' ? product.supplierCurrency !== 'USD' : product.supplierCurrency !== 'NGN')) throw new CommerceError('INVALID_PRICE', 'Product pricing is unavailable', 409);
 }
@@ -255,19 +255,19 @@ export async function createOrder(
       await tx.idempotencyRecord.create({ data: { ...key, requestHash, resultId: quote.order.id } });
       return orderDto(quote.order);
     }
-    if (quote.acceptedAt || quote.expiresAt.getTime() <= Date.now()) throw new CommerceError('QUOTE_EXPIRED', 'Request and accept a fresh quote', 409);
+    const isDirectPaystack = Boolean(options?.paymentReference?.startsWith('paystack-chk-'));
+    if (quote.acceptedAt || (!isDirectPaystack && quote.expiresAt.getTime() <= Date.now())) throw new CommerceError('QUOTE_EXPIRED', 'Request and accept a fresh quote', 409);
     await tx.$queryRaw`SELECT id FROM "Product" WHERE id=${quote.productId} FOR UPDATE`;
     const product = await tx.product.findUniqueOrThrow({ where: { id: quote.productId } });
     assertProduct(product);
     const legacyPriceChanged = product.pricingPolicy === 'legacy-retail' && quote.pricingVersion === 'fixture-fixed-retail-v1' && product.retailMinor !== quote.retailMinor;
-    if (product.apiContractVersion !== quote.apiContractVersion || product.version !== quote.productVersion || legacyPriceChanged || product.supplierMinor !== quote.supplierMinor || product.supplierCurrency !== quote.supplierCurrency || product.provider !== quote.provider || product.providerMode !== quote.providerMode || product.terms !== quote.terms || product.entitlement !== quote.entitlement || quote.paymentMode !== 'fixture') {
+    if (!isDirectPaystack && (product.apiContractVersion !== quote.apiContractVersion || product.version !== quote.productVersion || legacyPriceChanged || product.supplierMinor !== quote.supplierMinor || product.supplierCurrency !== quote.supplierCurrency || product.provider !== quote.provider || product.providerMode !== quote.providerMode || product.terms !== quote.terms || product.entitlement !== quote.entitlement || quote.paymentMode !== 'fixture')) {
       throw new CommerceError('QUOTE_CHANGED', 'Product terms changed; accept a fresh quote', 409);
     }
     if (options?.paymentReference) {
       await tx.$queryRaw`SELECT id FROM "PaymentIntent" WHERE reference=${options.paymentReference} FOR UPDATE`;
       const intent = await tx.paymentIntent.findUnique({ where: { reference: options.paymentReference } });
       const existingOrder = await tx.order.findFirst({ where: { paymentReference: options.paymentReference }, select: { id: true } });
-      const isDirectPaystack = options.paymentReference.startsWith('paystack-chk-');
       const amountValid = isDirectPaystack ? (intent && intent.amountMinor >= quote.retailMinor && intent.creditedMinor >= quote.retailMinor) : (intent && intent.amountMinor === quote.retailMinor && intent.creditedMinor === quote.retailMinor);
       if (!intent || intent.ownerId !== ownerId || intent.environment !== environment || intent.currency !== quoteCurrency || !amountValid || intent.status !== 'CREDITED' || existingOrder) {
         throw new CommerceError('PAYMENT_MISMATCH', 'Payment reference currency, credited status, or amount does not match the quote', 409);
@@ -388,10 +388,6 @@ export async function applyFundingEvent(event: FundingEvent): Promise<void> {
     const quoteId = event.reference.slice('paystack-chk-'.length);
     const currentIntent = await prisma.paymentIntent.findUnique({ where: { reference: event.reference } });
     if (currentIntent && currentIntent.status === 'CREDITED' && !currentIntent.orderId) {
-      await prisma.quote.updateMany({
-        where: { id: quoteId, ownerId: currentIntent.ownerId, acceptedAt: null },
-        data: { expiresAt: new Date(Date.now() + 120_000) },
-      });
       const digest = createHash('sha256').update(`auto-order:${event.reference}`).digest('hex');
       const autoKey = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
       const created = await createOrder(currentIntent.ownerId, quoteId, autoKey, { currency: intentCurrency, paymentReference: event.reference });

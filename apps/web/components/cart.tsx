@@ -44,7 +44,7 @@ export function Cart() {
       const chargeMinor = BigInt(totalMinor) < minMinor ? minMinor : BigInt(totalMinor);
       const funded = await api<import('@goober/contracts').FundingDto>(
         '/wallet/fund/paystack/initialize',
-        { amountMinor: chargeMinor.toString(), currency, callbackUrl: window.location.origin + '/checkout/verify' },
+        { amountMinor: chargeMinor.toString(), currency, callbackUrl: `${window.location.origin}/checkout/verify?from=cart&currency=${currency}` },
       );
       if (funded.authorizationUrl) {
         window.location.assign(funded.authorizationUrl);

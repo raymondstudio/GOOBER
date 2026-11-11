@@ -22,7 +22,8 @@ export async function bootstrap(){
  const express=app.getHttpAdapter().getInstance();express.disable('x-powered-by');express.set('trust proxy',false);
  const port=Number(process.env.API_PORT??3001);if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('Invalid loopback API port');
  const tunnelHost=process.env.PUBLIC_TUNNEL_ORIGIN?new URL(process.env.PUBLIC_TUNNEL_ORIGIN).host:null;
- const allowedHosts=new Set([new URL(environment.origin).host,'127.0.0.1:'+port,...(tunnelHost?[tunnelHost]:[])]);
+ const webPort=new URL(environment.origin).port||'3000';
+ const allowedHosts=new Set([new URL(environment.origin).host,'127.0.0.1:'+port,...(environment.appEnv==='local'?['localhost:'+webPort,'localhost:'+port]:[]),...(tunnelHost?[tunnelHost]:[])]);
  app.use((request:Request,response:Response,next:NextFunction)=>{
  response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('X-Frame-Options','DENY');response.setHeader('Referrer-Policy','no-referrer');response.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=(), payment=()');response.setHeader('Content-Security-Policy',"frame-ancestors 'none'; base-uri 'self'");
  if(typeof request.headers.host!=='string'||!allowedHosts.has(request.headers.host)){response.status(400).json({error:{code:'INVALID_HOST',message:'Request host is not allowed'}});return;}next();});

@@ -28,6 +28,25 @@ export default function CheckoutVerifyPage() {
         setStatus('done');
         if (verified.orderId) {
           window.location.assign('/orders/' + encodeURIComponent(verified.orderId));
+          return;
+        }
+        if (params.get('from') === 'cart') {
+          const rawCart = window.localStorage.getItem('goober.cart');
+          const cartIds: string[] = rawCart ? JSON.parse(rawCart) : [];
+          let lastOrderId = '';
+          for (const productId of cartIds) {
+            const res = await api<import('@goober/contracts').DirectCheckoutDto>(
+              '/checkout',
+              { productId, quantity: 1, currency: verified.currency, paymentMethod: 'wallet' },
+              { 'Idempotency-Key': crypto.randomUUID() },
+            );
+            if (res.order?.id) lastOrderId = res.order.id;
+          }
+          window.localStorage.setItem('goober.cart', '[]');
+          window.dispatchEvent(new CustomEvent('goober:cart-changed'));
+          if (lastOrderId) {
+            window.location.assign(cartIds.length === 1 ? '/orders/' + encodeURIComponent(lastOrderId) : '/orders');
+          }
         }
       } catch (err) {
         if (cancelled) return;

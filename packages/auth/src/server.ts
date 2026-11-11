@@ -23,7 +23,7 @@ export const auth = betterAuth({
   onAPIError: { onError: () => console.warn("GOOBER auth request failed safely.") },
   secret: config.secret,
   baseURL: config.baseURL,
-  trustedOrigins: [config.baseURL, ...(process.env.PUBLIC_TUNNEL_ORIGIN ? [new URL(process.env.PUBLIC_TUNNEL_ORIGIN).origin] : [])],
+  trustedOrigins: [config.baseURL, ...(process.env.APP_ENV === "local" ? [`http://localhost:${new URL(config.baseURL).port || "3000"}`] : []), ...(process.env.PUBLIC_TUNNEL_ORIGIN ? [new URL(process.env.PUBLIC_TUNNEL_ORIGIN).origin] : [])],
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: { enabled: true, minPasswordLength: 12, maxPasswordLength: 128 },
   user: { additionalFields: { role: { type: "string", defaultValue: "CUSTOMER", input: false } } },

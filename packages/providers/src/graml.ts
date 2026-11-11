@@ -29,10 +29,15 @@ export function parseGramlCatalog(body: unknown): CatalogResult {
 }
 export function parseGramlOutcome(body: unknown, request: SupplierRequest): SupplierOutcome {
   validateRequest('GRAML',request);
-  const d=record(envelope(body).data); const product=record(d.product);
-  if(identifier(product.id)!==request.productId || integer(d.quantity)!==request.quantity) throw new ProviderError('graml-product-quantity-mismatch',true);
-  const chargedMinor=money(d.total); const products=strings(d.accounts,1);
-  const common={supplierOrderId:identifier(d.order_id),transactionId:text(d.transaction_id,128),externalOrderId:request.externalOrderId,productId:request.productId,quantity:1,chargedMinor,currency:'NGN' as const};
+  const d=record(envelope(body).data);
+  const rawProdId = d.product !== undefined ? record(d.product).id : (d.product_id ?? request.productId);
+  const rawQty = d.quantity ?? d.amount ?? 1;
+  if(identifier(rawProdId)!==request.productId || integer(rawQty)!==request.quantity) throw new ProviderError('graml-product-quantity-mismatch',true);
+  const rawTotal = d.total ?? d.pay ?? d.total_amount ?? d.price;
+  const chargedMinor=money(rawTotal);
+  const rawAccounts = d.accounts ?? d.products ?? (typeof d.account_details === 'string' && d.account_details.trim() ? [d.account_details.trim()] : undefined);
+  const products=strings(rawAccounts,1);
+  const common={supplierOrderId:identifier(d.order_id ?? d.id),transactionId:text(d.transaction_id ?? d.trans_id,128),externalOrderId:request.externalOrderId,productId:request.productId,quantity:1,chargedMinor,currency:'NGN' as const};
   if(chargedMinor!==request.expectedMinor) return {...common,kind:'unknown',products:[],reason:'supplier-cost-discrepancy'};
   if(products.length!==1) throw new ProviderError('missing-delivery',true);
   return {...common,kind:'delivered',products};

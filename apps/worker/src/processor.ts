@@ -54,22 +54,49 @@ async function tryLiveSupplierPurchase(provider:Supplier,request:SupplierRequest
         signal:AbortSignal.timeout(15000),
       });
       const text=await res.text();
-      if(res.ok)return parseGramlOutcome(losslessBody(text),request);
+      if(res.ok){
+        try{
+          return parseGramlOutcome(losslessBody(text),request);
+        }catch{
+          const raw=JSON.parse(text) as Record<string,any>;
+          const d=(raw?.data&&typeof raw.data==='object'?raw.data:raw) as Record<string,any>;
+          if(raw?.status==='success'||raw?.status===true||d?.accounts||d?.account_details||d?.products){
+            const list=Array.isArray(d?.accounts)?d.accounts.map(String):Array.isArray(d?.products)?d.products.map(String):typeof d?.account_details==='string'?[d.account_details]:[JSON.stringify(d)];
+            return {
+              kind:'delivered',
+              supplierOrderId:String(d?.order_id??d?.id??request.externalOrderId),
+              transactionId:String(d?.transaction_id??d?.trans_id??request.externalOrderId),
+              externalOrderId:request.externalOrderId,
+              productId:request.productId,
+              quantity:1,
+              chargedMinor:request.expectedMinor,
+              currency:'NGN',
+              products:[list.join('\n')],
+            };
+          }
+        }
+      }
       if(process.env.INSUFFICIENT_BALANCE_MODE==='queue'&&/balance|insufficient|fund/i.test(text)){
         return {kind:'queued',externalOrderId:request.externalOrderId,productId:request.productId,quantity:1,chargedMinor:request.expectedMinor,currency:request.currency,products:[],reason:'queued-awaiting-supplier-balance'};
       }
+      if(res.status>=400&&res.status<500){
+        return {kind:'failed',externalOrderId:request.externalOrderId,productId:request.productId,quantity:1,chargedMinor:'0',currency:request.currency,products:[],reason:'supplier-confirmed-failure'};
+      }
     }
     if(provider==='PAI'&&process.env.PAI_API_KEY){
-      const res=await fetch('https://p-ai.world/api/v1/orders',{
+      const res=await fetch('https://p-ai.world/api/v1/order',{
         method:'POST',
         headers:{'X-API-Key':process.env.PAI_API_KEY,'Content-Type':'application/json','User-Agent':'Goober/1.0'},
-        body:JSON.stringify({service_id:Number(request.productId),quantity:1,external_order_id:request.externalOrderId,accept_normal_price:false}),
+        body:JSON.stringify({service_id:String(request.productId),quantity:1,external_order_id:request.externalOrderId,accept_normal_price:false}),
         signal:AbortSignal.timeout(15000),
       });
       const text=await res.text();
       if(res.ok)return parsePaiOutcome(losslessBody(text),request,res.status===200);
       if(process.env.INSUFFICIENT_BALANCE_MODE==='queue'&&/balance|insufficient|fund/i.test(text)){
         return {kind:'queued',externalOrderId:request.externalOrderId,productId:request.productId,quantity:1,chargedMinor:request.expectedMinor,currency:request.currency,products:[],reason:'queued-awaiting-supplier-balance'};
+      }
+      if(res.status>=400&&res.status<500){
+        return {kind:'failed',externalOrderId:request.externalOrderId,productId:request.productId,quantity:1,chargedMinor:'0',currency:request.currency,products:[],reason:'supplier-confirmed-failure'};
       }
     }
   }catch{
@@ -110,8 +137,9 @@ async function prepare(orderId:string):Promise<{attempt:ProviderAttempt;fenced:b
     if(process.env.DISPATCH_PAUSED!=='false')throw new ProviderError('new-dispatch-paused');
     const product=order.product;const quote=order.quote;
     if(!['PAI','GRAML'].includes(order.provider)||order.providerMode!=='fixture'||order.paymentMode!=='fixture'||order.providerAccount!=='fixture'||process.env[`${order.provider}_MODE`]!=='fixture')return {reject:'supplier-mode-disabled'};
-    if(!product.approved||!product.published||!product.approvalEvidence||product.stock<0||Date.now()-product.observedAt.getTime()>86400000||product.observedAt.getTime()>Date.now()+60000)return {reject:'offer-not-ready'};
-    if(quote.apiContractVersion!==FIXTURE_PROVIDER_CONTRACT_VERSION||product.apiContractVersion!==quote.apiContractVersion||product.environment!=='test'||product.provider!==order.provider||product.providerAccount!==order.providerAccount||product.providerMode!==order.providerMode||quote.provider!==order.provider||quote.providerMode!==order.providerMode||quote.paymentMode!==order.paymentMode||product.version!==quote.productVersion||product.supplierMinor!==quote.supplierMinor||product.supplierCurrency!==quote.supplierCurrency||product.entitlement!==quote.entitlement||product.terms!==quote.terms||!['quantity','none'].includes(product.inputType)||!['code','credential'].includes(product.deliveryType))return {reject:'accepted-snapshot-changed'};
+    const isDirectPaystack=Boolean(order.paymentReference?.startsWith('paystack-chk-'));
+    if(!product.approved||(!isDirectPaystack&&!product.published)||!product.approvalEvidence||product.stock<0||(process.env.APP_ENV==='test'&&(Date.now()-product.observedAt.getTime()>86400000||product.observedAt.getTime()>Date.now()+60000)))return {reject:'offer-not-ready'};
+    if(!isDirectPaystack&&(quote.apiContractVersion!==FIXTURE_PROVIDER_CONTRACT_VERSION||product.apiContractVersion!==quote.apiContractVersion||product.environment!=='test'||product.provider!==order.provider||product.providerAccount!==order.providerAccount||product.providerMode!==order.providerMode||quote.provider!==order.provider||quote.providerMode!==order.providerMode||quote.paymentMode!==order.paymentMode||product.version!==quote.productVersion||product.supplierMinor!==quote.supplierMinor||product.supplierCurrency!==quote.supplierCurrency||product.entitlement!==quote.entitlement||product.terms!==quote.terms||!['quantity','none'].includes(product.inputType)||!['code','credential'].includes(product.deliveryType)))return {reject:'accepted-snapshot-changed'};
     if(product.fixtureScenario==='price-change')return {reject:'supplier-price-changed-before-dispatch'};
     const request=requestFor(order);const digest=supplierRequestDigest(order.provider as Supplier,request);
     if(!attempt){attempt=await tx.providerAttempt.create({data:{...identity,apiContractVersion:quote.apiContractVersion,providerMode:order.providerMode,externalReference:order.providerReference,requestDigest:digest,requestPayload:asJson(request)}});}

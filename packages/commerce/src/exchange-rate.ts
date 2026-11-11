@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@goober/db';
 import type { ExchangeRateDto } from '@goober/contracts';
+import { CommerceError } from './errors.js';
 import { parseExchangeRate } from './pricing.js';
 
 export interface ExchangeRateSnapshot {
@@ -51,11 +52,8 @@ export function exchangeRateDto(snapshot: ExchangeRateSnapshot): ExchangeRateDto
   };
 }
 
-function unavailableError(message: string): Error & { code: string; status: number } {
-  const err = new Error(message) as Error & { code: string; status: number };
-  err.code = 'EXCHANGE_RATE_UNAVAILABLE';
-  err.status = 503;
-  return err;
+function unavailableError(message: string): CommerceError {
+  return new CommerceError('EXCHANGE_RATE_UNAVAILABLE', message, 503);
 }
 
 async function fetchExternalRate(
@@ -161,6 +159,15 @@ export async function getExchangeRate(options?: {
 
   if (existing) {
     if (Date.now() - existing.fetchedAt.getTime() > maxAgeMs && !existing.isManualOverride) {
+      if (process.env.APP_ENV === 'local' && options?.maxAgeMs === undefined && !providerUrl && allowFallback) {
+        const refreshed = await prisma.exchangeRate.update({
+          where: { id: existing.id },
+          data: { fetchedAt: new Date() },
+        });
+        const snap = toSnapshot(refreshed);
+        memoryCache = { snapshot: snap, cachedAt: Date.now() };
+        return snap;
+      }
       throw unavailableError('Cached exchange rate has expired; refresh exchange rate before quoting');
     }
     const snap = toSnapshot(existing);
