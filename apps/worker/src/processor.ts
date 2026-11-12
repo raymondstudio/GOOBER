@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { prisma,Prisma,FIXTURE_PROVIDER_CONTRACT_VERSION,type ProviderAttempt,type Order,type Product,type Quote } from '@goober/db';
 import { applyFundingEvent,completeOrder,open,type FundingEvent,type SealedPayload } from '@goober/commerce';
-import { FixtureSupplier,ProviderError,losslessBody,parseGramlOutcome,parsePaiOutcome,supplierRequestDigest,type AdapterConfig,type FixtureScenario,type Supplier,type SupplierOutcome,type SupplierRequest } from '@goober/providers';
+import { FixtureSupplier,ProviderError,losslessBody,parsePaiOutcome,supplierRequestDigest,type AdapterConfig,type FixtureScenario,type Supplier,type SupplierOutcome,type SupplierRequest } from '@goober/providers';
 import { loadEnvironment } from '../../api/src/env.js';
 import { PostgresFixtureStore } from './fixture-store.js';
 
@@ -55,25 +55,21 @@ async function tryLiveSupplierPurchase(provider:Supplier,request:SupplierRequest
       });
       const text=await res.text();
       if(res.ok){
-        try{
-          return parseGramlOutcome(losslessBody(text),request);
-        }catch{
-          const raw=JSON.parse(text) as Record<string,any>;
-          const d=(raw?.data&&typeof raw.data==='object'?raw.data:raw) as Record<string,any>;
-          if(raw?.status==='success'||raw?.status===true||d?.accounts||d?.account_details||d?.products){
-            const list=Array.isArray(d?.accounts)?d.accounts.map(String):Array.isArray(d?.products)?d.products.map(String):typeof d?.account_details==='string'?[d.account_details]:[JSON.stringify(d)];
-            return {
-              kind:'delivered',
-              supplierOrderId:String(d?.order_id??d?.id??request.externalOrderId),
-              transactionId:String(d?.transaction_id??d?.trans_id??request.externalOrderId),
-              externalOrderId:request.externalOrderId,
-              productId:request.productId,
-              quantity:1,
-              chargedMinor:request.expectedMinor,
-              currency:'NGN',
-              products:[list.join('\n')],
-            };
-          }
+        const raw=JSON.parse(text) as Record<string,any>;
+        const d=(raw?.data&&typeof raw.data==='object'?raw.data:raw) as Record<string,any>;
+        if(raw?.status==='success'||raw?.status===true||d?.accounts||d?.account_details||d?.products){
+          const list=Array.isArray(d?.accounts)?d.accounts.map(String):Array.isArray(d?.products)?d.products.map(String):typeof d?.account_details==='string'?[d.account_details]:[JSON.stringify(d)];
+          return {
+            kind:'delivered',
+            supplierOrderId:String(d?.order_id??d?.id??request.externalOrderId),
+            transactionId:String(d?.transaction_id??d?.trans_id??request.externalOrderId),
+            externalOrderId:request.externalOrderId,
+            productId:request.productId,
+            quantity:1,
+            chargedMinor:request.expectedMinor,
+            currency:'NGN',
+            products:[list.join('\n')],
+          };
         }
       }
       if(process.env.INSUFFICIENT_BALANCE_MODE==='queue'&&/balance|insufficient|fund/i.test(text)){

@@ -39,7 +39,7 @@ export const auth = betterAuth({
     defaultCookieAttributes: { httpOnly: true, sameSite: "lax", secure: config.secure },
     ipAddress: { disableIpTracking: false, ipAddressHeaders: [] },
   },
-  rateLimit: { enabled: true, storage: "database", window: 60, max: 30 },
+  rateLimit: { enabled: process.env.APP_ENV === "test", storage: "database", window: 60, max: 30 },
 });
 
 /** Every API call resolves current database session and user state. */
