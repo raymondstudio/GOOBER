@@ -1,0 +1,20 @@
+{
+	"mcpServers": {
+		"graphify": {
+			"type": "stdio",
+			"command": "c:\\Users\\USER\\Desktop\\CODE PROJECTS\\GOOBER\\GOOBER\\.local\\skill-tools\\graphify\\Scripts\\python.exe",
+			"args": [
+				"c:\\Users\\USER\\Desktop\\CODE PROJECTS\\GOOBER\\GOOBER\\scripts\\graphify-mcp-stdio.py",
+				"--graph",
+				"c:\\Users\\USER\\Desktop\\CODE PROJECTS\\GOOBER\\GOOBER\\graphify-out\\graph.json"
+			],
+			"tools": [
+				"*"
+			],
+			"env": {
+				"GRAPHIFY_NO_AUTO_REFRESH": "1",
+				"GRAPHIFY_BACKEND": "none"
+			}
+		}
+	}
+}
