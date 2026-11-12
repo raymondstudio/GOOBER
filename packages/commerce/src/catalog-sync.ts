@@ -19,7 +19,7 @@ export async function syncSupplierCatalog(
   catalog: CatalogResult,
   options?: { providerAccount?: string; providerMode?: 'fixture' | 'sandbox' | 'readonly'; autoPublish?: boolean },
 ): Promise<CatalogSyncResult> {
-  const environment = 'test';
+  const environment: 'test' | 'live' = process.env.DATA_ENV === 'live' ? 'live' : 'test';
   const providerAccount = options?.providerAccount ?? 'fixture';
   const providerMode = options?.providerMode ?? 'fixture';
   const autoPublish = options?.autoPublish === true;

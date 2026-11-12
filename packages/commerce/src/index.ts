@@ -23,12 +23,12 @@ export type Transaction = Prisma.TransactionClient;
 export interface FundingEvent {
   eventId: string;
   type: 'payment.succeeded' | 'payment.reversed' | 'payment.failed';
-  environment: 'test';
+  environment: 'test' | 'live';
   reference: string;
   amountMinor: string;
   currency: Currency;
   provider?: 'fixture' | 'paystack';
-  providerAccount?: 'fixture' | 'sandbox';
+  providerAccount?: 'fixture' | 'sandbox' | 'live';
   processorTransactionId?: string;
   inboxId?: string;
 }
@@ -39,13 +39,13 @@ export interface CommerceOutcome {
 export interface ReviewResolution {
   operationId: string; version: number; resolution: 'delivered' | 'failed' | 'merchant-loss'; reason: string; delivery?: string[];
 }
-const environment = 'test';
+const environment: 'test' | 'live' = process.env.DATA_ENV === 'live' ? 'live' : 'test';
 const accountKey = (ownerId: string | null, purpose: string, currency: string) => `${ownerId ?? 'system'}:${purpose}:${currency}`;
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
-function assertLocal() {
-  if (!['local', 'test'].includes(process.env.APP_ENV ?? '') || process.env.DATA_ENV !== 'test' || !['fixture', 'paystack'].includes(process.env.PAYMENT_MODE ?? '')) {
-    throw new CommerceError('MODE_DISABLED', 'This commerce slice requires isolated local/test funding', 503);
+function assertRuntime() {
+  if (!['local', 'test', 'staging', 'production'].includes(process.env.APP_ENV ?? '') || !['test', 'live'].includes(environment)) {
+    throw new CommerceError('MODE_DISABLED', 'Commerce is not configured for this runtime', 503);
   }
 }
 function amount(value: string, allowZero = false) {
@@ -113,7 +113,7 @@ async function markInbox(tx: Transaction, inboxId?: string) {
   if (inboxId) await tx.inbox.updateMany({ where: { id: inboxId, status: { not: 'PROCESSED' } }, data: { status: 'PROCESSED', processedAt: new Date(), lastError: null } });
 }
 function walletDto(wallet: Wallet): WalletDto {
-  return { availableMinor: wallet.availableMinor.toString(), reservedMinor: wallet.reservedMinor.toString(), currency: (wallet.currency === 'USD' ? 'USD' : 'NGN') as Currency, frozen: wallet.frozen, environment: 'test' };
+  return { availableMinor: wallet.availableMinor.toString(), reservedMinor: wallet.reservedMinor.toString(), currency: (wallet.currency === 'USD' ? 'USD' : 'NGN') as Currency, frozen: wallet.frozen, environment };
 }
 export function orderDto(order: Order & { product?: Pick<Product, 'name' | 'description' | 'category'> }): OrderDto {
   const currency = (order.customerCurrency === 'USD' ? 'USD' : 'NGN') as Currency;
@@ -150,13 +150,13 @@ export function orderDto(order: Order & { product?: Pick<Product, 'name' | 'desc
   };
 }
 export async function getWallet(ownerId: string, currency: Currency = 'NGN'): Promise<WalletDto> {
-  assertLocal();
+  assertRuntime();
   return withSerializable(async tx => walletDto(await walletLock(tx, ownerId, currency)));
 }
 
 function assertProduct(product: Product) {
   if (!product.approved || !product.published || !product.approvalEvidence || product.environment !== environment) throw new CommerceError('PRODUCT_UNAVAILABLE', 'This product is unavailable', 409);
-  if (!['PAI', 'GRAML'].includes(product.provider) || product.providerMode !== 'fixture' || process.env[`${product.provider}_MODE`] !== 'fixture' || product.providerAccount !== 'fixture') throw new CommerceError('PROVIDER_DISABLED', 'This product is unavailable in the current supplier mode', 409);
+  if (!['PAI', 'GRAML'].includes(product.provider) || product.providerMode !== process.env[`${product.provider}_MODE`] || (environment === 'test' && product.providerAccount !== 'fixture') || (environment === 'live' && product.providerAccount === 'fixture')) throw new CommerceError('PROVIDER_DISABLED', 'This product is unavailable in the current supplier mode', 409);
   if (!['quantity', 'none'].includes(product.inputType) || !['code', 'credential'].includes(product.deliveryType)) throw new CommerceError('UNSUPPORTED_PRODUCT', 'This delivery or input mode is not supported', 409);
   if (product.stock < 1) throw new CommerceError('OUT_OF_STOCK', 'This product is out of stock', 409);
   if (process.env.APP_ENV === 'test' && (Date.now() - product.observedAt.getTime() > 24 * 60 * 60 * 1000 || product.observedAt.getTime() > Date.now() + 60_000)) throw new CommerceError('STALE_OFFER', 'Product availability needs a fresh observation', 409);
@@ -165,7 +165,7 @@ function assertProduct(product: Product) {
 }
 
 export async function createQuote(ownerId: string, productId: string, quantity = 1, customerCurrency?: Currency): Promise<QuoteDto> {
-  assertLocal();
+  assertRuntime();
   if (quantity !== 1) throw new CommerceError('UNSUPPORTED_QUANTITY', 'M1 supports one product per order');
   const product = await prisma.product.findUnique({ where: { id: productId } });
   if (!product) throw new CommerceError('NOT_FOUND', 'Product was not found', 404);
@@ -203,7 +203,7 @@ export async function createQuote(ownerId: string, productId: string, quantity =
       terms: product.terms,
       provider: product.provider,
       providerMode: product.providerMode,
-      paymentMode: 'fixture',
+      paymentMode: process.env.PAYMENT_MODE === 'paystack' ? 'paystack' : 'fixture',
       expiresAt: new Date(Date.now() + 120_000),
     },
   });
@@ -231,7 +231,7 @@ export async function createOrder(
   idempotencyKey: string,
   options?: { currency?: Currency; paymentReference?: string },
 ): Promise<OrderDto> {
-  assertLocal(); operation(idempotencyKey);
+  assertRuntime(); operation(idempotencyKey);
   const requestHash = hash({ quoteId, ...(options?.currency ? { currency: options.currency } : {}), ...(options?.paymentReference ? { paymentReference: options.paymentReference } : {}) });
   return withSerializable(async tx => {
     const quotePeek = await tx.quote.findUnique({ where: { id: quoteId }, select: { customerCurrency: true } });
@@ -261,7 +261,7 @@ export async function createOrder(
     const product = await tx.product.findUniqueOrThrow({ where: { id: quote.productId } });
     assertProduct(product);
     const legacyPriceChanged = product.pricingPolicy === 'legacy-retail' && quote.pricingVersion === 'fixture-fixed-retail-v1' && product.retailMinor !== quote.retailMinor;
-    if (!isDirectPaystack && (product.apiContractVersion !== quote.apiContractVersion || product.version !== quote.productVersion || legacyPriceChanged || product.supplierMinor !== quote.supplierMinor || product.supplierCurrency !== quote.supplierCurrency || product.provider !== quote.provider || product.providerMode !== quote.providerMode || product.terms !== quote.terms || product.entitlement !== quote.entitlement || quote.paymentMode !== 'fixture')) {
+    if (!isDirectPaystack && (product.apiContractVersion !== quote.apiContractVersion || product.version !== quote.productVersion || legacyPriceChanged || product.supplierMinor !== quote.supplierMinor || product.supplierCurrency !== quote.supplierCurrency || product.provider !== quote.provider || product.providerMode !== quote.providerMode || product.terms !== quote.terms || product.entitlement !== quote.entitlement || quote.paymentMode !== (process.env.PAYMENT_MODE === 'paystack' ? 'paystack' : 'fixture'))) {
       throw new CommerceError('QUOTE_CHANGED', 'Product terms changed; accept a fresh quote', 409);
     }
     if (options?.paymentReference) {
@@ -299,8 +299,8 @@ export async function createOrder(
         provider: product.provider,
         providerAccount: product.providerAccount,
         providerMode: quote.providerMode,
-        paymentMode: 'fixture',
-        providerReference: `goober-test-${id}`,
+        paymentMode: process.env.PAYMENT_MODE === 'paystack' ? 'paystack' : 'fixture',
+        providerReference: `goober-${id}`,
       },
       include: { product: true },
     });
@@ -309,33 +309,33 @@ export async function createOrder(
     await tx.wallet.update({ where: { id: wallet.id }, data: { availableMinor: { decrement: quote.retailMinor }, reservedMinor: { increment: quote.retailMinor } } });
     await tx.quote.update({ where: { id: quoteId }, data: { acceptedAt: new Date() } });
     await tx.idempotencyRecord.create({ data: { ...key, requestHash, resultId: id } });
-    await tx.outbox.create({ data: { environment, eventKey: `fulfill:${id}`, eventType: 'ORDER_FULFILL', aggregateId: id, payload: { orderId: id, environment, providerMode: product.providerMode, paymentMode: 'fixture' } } });
+    await tx.outbox.create({ data: { environment, eventKey: `fulfill:${id}`, eventType: 'ORDER_FULFILL', aggregateId: id, payload: { orderId: id, environment, providerMode: product.providerMode, paymentMode: process.env.PAYMENT_MODE === 'paystack' ? 'paystack' : 'fixture' } } });
     return orderDto(order);
   });
 }
 
 
 export async function createFundingIntent(ownerId: string, amountMinor: string, options?: CreateFundingOptions): Promise<FundingDto> {
-  assertLocal();
+  assertRuntime();
   const value = amount(amountMinor);
   const currency: Currency = options?.currency === 'USD' ? 'USD' : 'NGN';
   const provider = options?.provider ?? (process.env.PAYMENT_MODE === 'paystack' ? 'paystack' : 'fixture');
   if (provider === 'paystack') {
     return initializePaystackFunding(ownerId, value, currency, options);
   }
-  if (value < 100n || value > 100_000_000n) throw new CommerceError('INVALID_AMOUNT', 'Test funding must be between 100 and 100000000 minor units');
+  if (value < 100n || value > 100_000_000n) throw new CommerceError('INVALID_AMOUNT', 'Funding must be between 100 and 100000000 minor units');
   const intent = await prisma.paymentIntent.create({ data: { ownerId, environment, reference: `fixture-${randomUUID()}`, amountMinor: value, currency, provider: 'fixture', providerAccount: 'fixture', paymentMode: 'fixture', orderId: options?.orderId ?? null } });
   return { id: intent.id, reference: intent.reference, amountMinor: intent.amountMinor.toString(), currency, mode: 'fixture', status: intent.status };
 }
 
 export async function verifyPaystackPayment(reference: string, options?: { customAdapter?: import('@goober/providers').PaystackAdapter; expectedOwnerId?: string }): Promise<FundingDto> {
-  assertLocal();
+  assertRuntime();
   return verifyPaystackPaymentInternal(reference, applyFundingEvent, options);
 }
 
 export async function applyFundingEvent(event: FundingEvent): Promise<void> {
-  assertLocal();
-  if (event.environment !== environment || !['NGN', 'USD'].includes(event.currency) || !['payment.succeeded', 'payment.reversed', 'payment.failed'].includes(event.type) || (event.provider && !['fixture', 'paystack'].includes(event.provider)) || (event.providerAccount && !['fixture', 'sandbox'].includes(event.providerAccount))) throw new CommerceError('PAYMENT_MISMATCH', 'Payment evidence does not match this environment');
+  assertRuntime();
+  if (event.environment !== environment || !['NGN', 'USD'].includes(event.currency) || !['payment.succeeded', 'payment.reversed', 'payment.failed'].includes(event.type) || (event.provider && !['fixture', 'paystack'].includes(event.provider)) || (event.providerAccount && !['fixture', 'sandbox', 'live'].includes(event.providerAccount))) throw new CommerceError('PAYMENT_MISMATCH', 'Payment evidence does not match this environment');
   const eventAmount = amount(event.amountMinor);
   const identity = await prisma.paymentIntent.findUnique({ where: { reference: event.reference }, select: { ownerId: true, currency: true, provider: true, providerAccount: true } });
   if (!identity) throw new CommerceError('PAYMENT_MISMATCH', 'Payment reference was not found');
@@ -401,7 +401,7 @@ export async function checkoutDirect(
   input: { productId: string; quantity?: number; currency?: Currency; paymentMethod?: 'paystack' | 'wallet'; callbackUrl?: string },
   idempotencyKey: string,
 ): Promise<import('@goober/contracts').DirectCheckoutDto> {
-  assertLocal();
+  assertRuntime();
   operation(idempotencyKey);
   const currency: Currency = input.currency === 'USD' ? 'USD' : 'NGN';
   const paymentMethod = input.paymentMethod ?? 'paystack';
@@ -477,7 +477,7 @@ async function finish(tx: Transaction, wallet: Wallet, order: Awaited<ReturnType
 }
 
 export async function completeOrder(orderId: string, outcome: CommerceOutcome, operationId: string): Promise<OrderDto> {
-  assertLocal(); operation(operationId);
+  assertRuntime(); operation(operationId);
   if (!['delivered', 'failed', 'queued', 'unknown'].includes(outcome.status)) throw new CommerceError('INVALID_OUTCOME', 'Supplier outcome is invalid');
   return withSerializable(async tx => {
     const { wallet, order } = await orderLock(tx, orderId);
@@ -506,12 +506,12 @@ async function refund(tx: Transaction, wallet: Wallet, order: Order & { product:
   return tx.order.update({ where: { id: order.id }, data: { refundedMinor, moneyStatus: refundedMinor === order.capturedMinor ? 'REFUNDED' : 'PARTIALLY_REFUNDED', version: { increment: 1 } }, include: { product: true } });
 }
 export async function refundOrder(orderId: string, amountMinor: string, operationId: string): Promise<OrderDto> {
-  assertLocal(); operation(operationId); const value = amount(amountMinor);
+  assertRuntime(); operation(operationId); const value = amount(amountMinor);
   return withSerializable(async tx => { const { wallet, order } = await orderLock(tx, orderId); return orderDto(await refund(tx, wallet, order, value, operationId)); });
 }
 
 export async function resolveReview(actorId: string, orderId: string, input: ReviewResolution): Promise<OrderDto> {
-  assertLocal(); operation(input.operationId);
+  assertRuntime(); operation(input.operationId);
   if (!Number.isSafeInteger(input.version) || input.version < 0 || typeof input.reason !== 'string' || input.reason.trim().length < 10 || input.reason.length > 1000 || !['delivered', 'failed', 'merchant-loss'].includes(input.resolution)) throw new CommerceError('INVALID_REVIEW', 'Provide current version, explicit resolution and review evidence');
   return withSerializable(async tx => {
     const actor = await tx.user.findUnique({ where: { id: actorId } });

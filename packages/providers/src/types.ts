@@ -72,13 +72,14 @@ export function validateConfig(provider: Supplier | 'PAYSTACK', config: AdapterC
   if (!['local', 'test', 'staging', 'production'].includes(config.appEnvironment) || !['test', 'live'].includes(config.environment)) throw new ProviderError('invalid-environment');
   if (!['fixture', 'sandbox', 'readonly', 'disabled'].includes(config.mode)) throw new ProviderError('invalid-mode');
   if (config.mode === 'disabled') return;
-  if (config.appEnvironment === 'production' || config.environment !== 'test') throw new ProviderError('live-mode-disabled');
+  if (config.environment === 'live' && provider !== 'PAYSTACK') throw new ProviderError('live-mode-disabled');
+  if (config.appEnvironment === 'production' && provider !== 'PAYSTACK') throw new ProviderError('live-mode-disabled');
   if (config.mode === 'fixture' && !['local', 'test'].includes(config.appEnvironment)) throw new ProviderError('fixture-environment-disabled');
   if (provider === 'GRAML' && config.mode === 'sandbox') throw new ProviderError('graml-sandbox-undocumented');
   if (provider !== 'GRAML' && config.mode === 'readonly') throw new ProviderError('unsupported-readonly-mode');
   if (config.mode !== 'fixture') {
     if ((!config.apiKey && provider !== 'GRAML') || !config.budget) throw new ProviderError('external-key-and-budget-required');
-    const validKey = config.apiKey!.startsWith('sk_test_') || (provider === 'PAYSTACK' && config.allowLiveKey === true && config.apiKey!.startsWith('sk_live_'));
+    const validKey = config.apiKey!.startsWith('sk_test_') || (provider === 'PAYSTACK' && config.environment === 'live' && config.allowLiveKey === true && config.apiKey!.startsWith('sk_live_'));
     if (provider !== 'GRAML' && !validKey) throw new ProviderError('test-key-required');
   }
   if (config.timeoutMs !== undefined && (!Number.isInteger(config.timeoutMs) || config.timeoutMs < 10 || config.timeoutMs > 30000)) throw new ProviderError('invalid-timeout');

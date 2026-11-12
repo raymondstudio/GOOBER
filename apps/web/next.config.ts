@@ -1,7 +1,9 @@
 import type { NextConfig } from 'next';
-const apiOrigin=process.env.INTERNAL_API_ORIGIN??'http://127.0.0.1:3001';
+const apiOrigin=process.env.INTERNAL_API_ORIGIN??(process.env.APP_ENV==='production'?undefined:'http://127.0.0.1:3001');
+if(!apiOrigin)throw new Error('INTERNAL_API_ORIGIN is required in production');
 const internal=new URL(apiOrigin);
-if(internal.protocol!=='http:'||internal.hostname!=='127.0.0.1'||internal.origin!==apiOrigin)throw new Error('Internal API must be an exact loopback origin');
+const localOrigin=internal.protocol==='http:'&&['127.0.0.1','localhost'].includes(internal.hostname);
+if(internal.origin!==apiOrigin||(!localOrigin&&internal.protocol!=='https:'))throw new Error('INTERNAL_API_ORIGIN must be an exact HTTP(S) origin');
 const config:NextConfig={
  distDir:process.env.NEXT_DIST_DIR??'.next',
  transpilePackages:['@goober/auth','@goober/db','@goober/contracts'],

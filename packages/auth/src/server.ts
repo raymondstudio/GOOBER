@@ -3,7 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@goober/db";
 
 function configuration() {
-  if (!["local", "test"].includes(process.env.APP_ENV ?? "") || process.env.DATA_ENV !== "test") throw new Error("Explicit local/test auth environment required");
+  if (!["local", "test", "staging", "production"].includes(process.env.APP_ENV ?? "") || !["test", "live"].includes(process.env.DATA_ENV ?? "")) throw new Error("Explicit auth environment required");
   const secret = process.env.BETTER_AUTH_SECRET;
   const baseURL = process.env.TRUSTED_ORIGIN ?? process.env.BETTER_AUTH_URL;
   if (!baseURL) throw new Error("Explicit auth origin required");
@@ -39,7 +39,7 @@ export const auth = betterAuth({
     defaultCookieAttributes: { httpOnly: true, sameSite: "lax", secure: config.secure },
     ipAddress: { disableIpTracking: false, ipAddressHeaders: [] },
   },
-  rateLimit: { enabled: process.env.APP_ENV === "test", storage: "database", window: 60, max: 30 },
+  rateLimit: { enabled: true, storage: "database", window: 60, max: 30 },
 });
 
 /** Every API call resolves current database session and user state. */

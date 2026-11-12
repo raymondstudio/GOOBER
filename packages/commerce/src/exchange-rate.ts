@@ -94,7 +94,7 @@ export async function getExchangeRate(options?: {
   maxAgeMs?: number;
   allowFallback?: boolean;
 }): Promise<ExchangeRateSnapshot> {
-  const environment = 'test';
+  const environment: 'test' | 'live' = process.env.DATA_ENV === 'live' ? 'live' : 'test';
   const maxAgeMs = options?.maxAgeMs ?? Number(process.env.EXCHANGE_RATE_MAX_AGE_MS ?? DEFAULT_MAX_AGE_MS);
   const providerUrl = options?.providerUrl ?? process.env.EXCHANGE_RATE_PROVIDER_URL;
   const apiKey = options?.apiKey ?? process.env.EXCHANGE_RATE_API_KEY;
@@ -204,7 +204,7 @@ export async function setManualExchangeRate(
   operationId: string = randomUUID(),
 ): Promise<ExchangeRateDto> {
   const parsed = parseExchangeRate(rate);
-  const environment = 'test';
+  const environment: 'test' | 'live' = process.env.DATA_ENV === 'live' ? 'live' : 'test';
   const actor = await prisma.user.findUnique({ where: { id: actorId } });
   if (actor?.role !== 'ADMIN') {
     const err = new Error('Administrator access required to override exchange rates') as Error & { code: string; status: number };

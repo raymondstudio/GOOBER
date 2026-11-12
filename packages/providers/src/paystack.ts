@@ -9,7 +9,7 @@ export interface FundingExpectation {
   reference: string;
   amountMinor: string;
   currency: PaystackCurrency;
-  environment: 'test';
+  environment: 'test' | 'live';
   domain?: 'test' | 'live';
   ownerId: string;
   callbackUrl?: string;
@@ -20,7 +20,7 @@ export interface FundingObservation {
   reference: string;
   amountMinor: string;
   currency: PaystackCurrency;
-  environment: 'test';
+  environment: 'test' | 'live';
   status: 'success' | 'pending' | 'failed' | 'reversed';
   ownerId: string;
   event?: string;
@@ -60,7 +60,7 @@ export function validatePaystackMinimum(amountMinor: string, currency: PaystackC
 }
 
 function validateFunding(expected: FundingExpectation, checkMinimum = false): void {
-  if (!/^[A-Za-z0-9_.=-]{1,100}$/.test(expected.reference) || !expected.ownerId || expected.ownerId.length > 128 || expected.environment !== 'test' || !['NGN', 'USD'].includes(expected.currency) || !/^[1-9][0-9]{0,14}$/.test(expected.amountMinor)) {
+  if (!/^[A-Za-z0-9_.=-]{1,100}$/.test(expected.reference) || !expected.ownerId || expected.ownerId.length > 128 || !['test', 'live'].includes(expected.environment) || !['NGN', 'USD'].includes(expected.currency) || !/^[1-9][0-9]{0,14}$/.test(expected.amountMinor)) {
     throw new ProviderError('invalid-funding-intent');
   }
   if (checkMinimum) validatePaystackMinimum(expected.amountMinor, expected.currency);
@@ -79,7 +79,7 @@ export function parsePaystackTransaction(body: unknown, expected: FundingExpecta
   const supplierStatus = text(data.status, 32);
   const status = supplierStatus === 'success' ? 'success' : supplierStatus === 'reversed' ? 'reversed' : ['abandoned', 'failed'].includes(supplierStatus) ? 'failed' : ['ongoing', 'pending', 'processing', 'queued'].includes(supplierStatus) ? 'pending' : null;
   if (!status) throw new ProviderError('unknown-payment-status');
-  return { transactionId: identifier(data.id), reference: expected.reference, amountMinor, currency: expected.currency, environment: 'test', status, ownerId: expected.ownerId };
+  return { transactionId: identifier(data.id), reference: expected.reference, amountMinor, currency: expected.currency, environment: expected.environment, status, ownerId: expected.ownerId };
 }
 
 export function parsePaystackCallback(raw: Buffer, header: string | undefined, secret: string, expected: FundingExpectation): FundingObservation {
@@ -106,7 +106,7 @@ export class PaystackAdapter {
   }
   async initialize(expected: FundingExpectation, email: string): Promise<{ reference: string; authorizationUrl: string; accessCode: string }> {
     validateFunding(expected, true);
-    if (this.config.mode !== 'sandbox') throw new ProviderError('paystack-test-mode-required');
+    if (this.config.mode !== 'sandbox') throw new ProviderError('paystack-mode-required');
     if (expected.currency === 'USD' && this.config.usdEnabled === false) throw new ProviderError('paystack-usd-not-enabled');
     if (email.length > 254 || !/^\S+@\S+\.\S+$/.test(email)) throw new ProviderError('invalid-payment-email');
     const payload: Record<string, unknown> = {
@@ -137,13 +137,13 @@ export class PaystackAdapter {
   }
   async verify(expected: FundingExpectation): Promise<FundingObservation> {
     validateFunding(expected);
-    if (this.config.mode !== 'sandbox') throw new ProviderError('paystack-test-mode-required');
+    if (this.config.mode !== 'sandbox') throw new ProviderError('paystack-mode-required');
     const r = await this.http.request('GET', `/transaction/verify/${encodeURIComponent(expected.reference)}`, undefined, true);
     if (r.status !== 200) throw new ProviderError('payment-verification-http-error');
     return parsePaystackTransaction(r.body, expected);
   }
   async refund(req: PaystackRefundRequest): Promise<PaystackRefundObservation> {
-    if (this.config.mode !== 'sandbox') throw new ProviderError('paystack-test-mode-required');
+    if (this.config.mode !== 'sandbox') throw new ProviderError('paystack-mode-required');
     if (!req.transaction || req.transaction.length > 128 || !['NGN', 'USD'].includes(req.currency) || !/^[1-9][0-9]{0,14}$/.test(req.amountMinor)) {
       throw new ProviderError('invalid-refund-request');
     }

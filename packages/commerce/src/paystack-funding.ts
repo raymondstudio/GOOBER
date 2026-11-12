@@ -7,12 +7,12 @@ import { CommerceError } from './errors.js';
 export interface FundingEventInput {
   eventId: string;
   type: 'payment.succeeded' | 'payment.reversed' | 'payment.failed';
-  environment: 'test';
+  environment: 'test' | 'live';
   reference: string;
   amountMinor: string;
   currency: Currency;
   provider?: 'fixture' | 'paystack';
-  providerAccount?: 'fixture' | 'sandbox';
+  providerAccount?: 'fixture' | 'sandbox' | 'live';
   processorTransactionId?: string;
   inboxId?: string;
 }
@@ -51,16 +51,17 @@ export function assertSafeCallbackUrl(rawUrl: string | undefined, enforceLocalOr
 }
 
 export function defaultPaystackAdapter(): PaystackAdapter {
+  const environment = process.env.DATA_ENV === 'live' ? 'live' : 'test';
   const apiKey = process.env.PAYSTACK_SECRET_KEY ?? process.env.PAYSTACK_TEST_SECRET ?? 'sk_test_local_sandbox';
   const usdEnabled = process.env.PAYSTACK_USD_ENABLED !== 'false';
   const cfg: AdapterConfig = {
-    appEnvironment: process.env.APP_ENV === 'test' ? 'test' : 'local',
-    environment: 'test',
-    accountId: 'sandbox',
+    appEnvironment: (process.env.APP_ENV ?? 'local') as AdapterConfig['appEnvironment'],
+    environment,
+    accountId: process.env.PAYSTACK_ACCOUNT_ID ?? (environment === 'live' ? 'live' : 'sandbox'),
     mode: 'sandbox',
     apiKey,
     usdEnabled,
-    allowLiveKey: true,
+    allowLiveKey: environment === 'live',
     budget: { acquire: async () => undefined },
   };
   return new PaystackAdapter(cfg);
@@ -73,7 +74,7 @@ export async function initializePaystackFunding(
   currency: Currency,
   options?: CreateFundingOptions,
 ): Promise<FundingDto> {
-  const environment = 'test';
+  const environment = process.env.DATA_ENV === 'live' ? 'live' : 'test';
   try {
     validatePaystackMinimum(value.toString(), currency);
   } catch (err) {
@@ -100,7 +101,7 @@ export async function initializePaystackFunding(
   const reference = options?.customReference ?? `paystack-${randomUUID()}`;
   const safeCallbackUrl = assertSafeCallbackUrl(options?.callbackUrl ?? process.env.PAYSTACK_CALLBACK_URL, !options?.customAdapter);
   const intent = await prisma.paymentIntent.create({
-    data: { ownerId, environment, reference, amountMinor: value, currency, provider: 'paystack', providerAccount: 'sandbox', paymentMode: 'sandbox', orderId: options?.orderId ?? null },
+    data: { ownerId, environment, reference, amountMinor: value, currency, provider: 'paystack', providerAccount: environment === 'live' ? 'live' : 'sandbox', paymentMode: 'paystack', orderId: options?.orderId ?? null },
   });
   const adapter = options?.customAdapter ?? defaultPaystackAdapter();
   try {
@@ -109,7 +110,7 @@ export async function initializePaystackFunding(
         reference,
         amountMinor: value.toString(),
         currency,
-        environment: 'test',
+        environment,
         ownerId,
         callbackUrl: safeCallbackUrl,
         metadata: { ownerId, intentId: intent.id, currency, amountMinor: value.toString(), ...(options?.orderId ? { orderId: options.orderId } : {}) },
@@ -165,14 +166,14 @@ export async function verifyPaystackPaymentInternal(
   applyEvent: (event: FundingEventInput) => Promise<void>,
   options?: { customAdapter?: PaystackAdapter; expectedOwnerId?: string },
 ): Promise<FundingDto> {
-  const environment = 'test';
+  const environment = process.env.DATA_ENV === 'live' ? 'live' : 'test';
   const intent = await prisma.paymentIntent.findUnique({ where: { reference } });
   if (!intent || intent.environment !== environment || intent.provider !== 'paystack' || (options?.expectedOwnerId && intent.ownerId !== options.expectedOwnerId)) {
     throw new CommerceError('NOT_FOUND', 'Paystack payment intent was not found', 404);
   }
   const currency = (intent.currency === 'USD' ? 'USD' : 'NGN') as Currency;
   const adapter = options?.customAdapter ?? defaultPaystackAdapter();
-  const domain = !options?.customAdapter && (process.env.PAYSTACK_SECRET_KEY ?? '').startsWith('sk_live_') ? 'live' : 'test';
+  const domain = environment === 'live' ? 'live' : 'test';
   let observed;
   if (!options?.customAdapter && process.env.APP_ENV === 'local' && intent.accessCode?.startsWith('local_fallback_')) {
     observed = {
@@ -184,7 +185,7 @@ export async function verifyPaystackPaymentInternal(
     };
   } else {
     try {
-      observed = await adapter.verify({ reference: intent.reference, amountMinor: intent.amountMinor.toString(), currency, environment: 'test', domain, ownerId: intent.ownerId });
+      observed = await adapter.verify({ reference: intent.reference, amountMinor: intent.amountMinor.toString(), currency, environment, domain, ownerId: intent.ownerId });
     } catch (err) {
       const reason = err instanceof ProviderError ? err.code : 'verification-error';
       if (reason === 'payment-association-mismatch') {
@@ -205,12 +206,12 @@ export async function verifyPaystackPaymentInternal(
     await applyEvent({
       eventId: `paystack-${observed.status}:${observed.transactionId}`,
       type: observed.status === 'success' ? 'payment.succeeded' : 'payment.reversed',
-      environment: 'test',
+      environment,
       reference: intent.reference,
       amountMinor: observed.amountMinor,
       currency: observed.currency,
       provider: 'paystack',
-      providerAccount: 'sandbox',
+      providerAccount: environment === 'live' ? 'live' : 'sandbox',
       processorTransactionId: observed.transactionId,
     });
   }

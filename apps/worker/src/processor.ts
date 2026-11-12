@@ -12,6 +12,7 @@ const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).d
 const final=(state:string)=>['DELIVERED','FAILED'].includes(state);
 const asJson=(value:unknown)=>value as Prisma.InputJsonObject;
 function settings(){return loadEnvironment();}
+function runtimeEnvironment(): 'test' | 'live' { return process.env.DATA_ENV === 'live' ? 'live' : 'test'; }
 // Supplier messages and even vendor-supplied error codes may contain delivered credentials.
 // Only these compile-time internal values may cross into ordinary operational records.
 const OPERATIONAL_CODES=new Set([
@@ -119,13 +120,14 @@ async function conclude(orderId:string,attempt:ProviderAttempt,outcome:SupplierO
   return status;
 }
 async function scheduleReconcile(orderId:string){
-  await prisma.outbox.createMany({data:[{environment:'test',eventKey:`reconcile:${orderId}`,eventType:'ORDER_RECONCILE',aggregateId:orderId,payload:{orderId,environment:'test'}}],skipDuplicates:true});
+  const environment=runtimeEnvironment();
+  await prisma.outbox.createMany({data:[{environment,eventKey:`reconcile:${orderId}`,eventType:'ORDER_RECONCILE',aggregateId:orderId,payload:{orderId,environment}}],skipDuplicates:true});
 }
 async function prepare(orderId:string):Promise<{attempt:ProviderAttempt;fenced:boolean}|{reject:string}|null>{
   return prisma.$transaction(async tx=>{
     await tx.$queryRaw`SELECT id FROM "Order" WHERE id=${orderId} FOR UPDATE`;
     const order=await tx.order.findUnique({where:{id:orderId},include:{product:true,quote:true}});
-    if(!order||order.environment!=='test')throw new ProviderError('order-environment-mismatch');
+    if(!order||order.environment!==runtimeEnvironment())throw new ProviderError('order-environment-mismatch');
     if(final(order.fulfillment))return null;
     const identity={orderId,provider:order.provider,providerAccount:order.providerAccount,environment:order.environment};
     let attempt=await tx.providerAttempt.findUnique({where:{orderId_provider_providerAccount_environment:identity}});
@@ -135,7 +137,7 @@ async function prepare(orderId:string):Promise<{attempt:ProviderAttempt;fenced:b
     if(!['PAI','GRAML'].includes(order.provider)||order.providerMode!=='fixture'||order.paymentMode!=='fixture'||order.providerAccount!=='fixture'||process.env[`${order.provider}_MODE`]!=='fixture')return {reject:'supplier-mode-disabled'};
     const isDirectPaystack=Boolean(order.paymentReference?.startsWith('paystack-chk-'));
     if(!product.approved||(!isDirectPaystack&&!product.published)||!product.approvalEvidence||product.stock<0||(process.env.APP_ENV==='test'&&(Date.now()-product.observedAt.getTime()>86400000||product.observedAt.getTime()>Date.now()+60000)))return {reject:'offer-not-ready'};
-    if(!isDirectPaystack&&(quote.apiContractVersion!==FIXTURE_PROVIDER_CONTRACT_VERSION||product.apiContractVersion!==quote.apiContractVersion||product.environment!=='test'||product.provider!==order.provider||product.providerAccount!==order.providerAccount||product.providerMode!==order.providerMode||quote.provider!==order.provider||quote.providerMode!==order.providerMode||quote.paymentMode!==order.paymentMode||product.version!==quote.productVersion||product.supplierMinor!==quote.supplierMinor||product.supplierCurrency!==quote.supplierCurrency||product.entitlement!==quote.entitlement||product.terms!==quote.terms||!['quantity','none'].includes(product.inputType)||!['code','credential'].includes(product.deliveryType)))return {reject:'accepted-snapshot-changed'};
+    if(!isDirectPaystack&&(quote.apiContractVersion!==FIXTURE_PROVIDER_CONTRACT_VERSION||product.apiContractVersion!==quote.apiContractVersion||product.environment!==runtimeEnvironment()||product.provider!==order.provider||product.providerAccount!==order.providerAccount||product.providerMode!==order.providerMode||quote.provider!==order.provider||quote.providerMode!==order.providerMode||quote.paymentMode!==order.paymentMode||product.version!==quote.productVersion||product.supplierMinor!==quote.supplierMinor||product.supplierCurrency!==quote.supplierCurrency||product.entitlement!==quote.entitlement||product.terms!==quote.terms||!['quantity','none'].includes(product.inputType)||!['code','credential'].includes(product.deliveryType)))return {reject:'accepted-snapshot-changed'};
     if(product.fixtureScenario==='price-change')return {reject:'supplier-price-changed-before-dispatch'};
     const request=requestFor(order);const digest=supplierRequestDigest(order.provider as Supplier,request);
     if(!attempt){attempt=await tx.providerAttempt.create({data:{...identity,apiContractVersion:quote.apiContractVersion,providerMode:order.providerMode,externalReference:order.providerReference,requestDigest:digest,requestPayload:asJson(request)}});}
@@ -149,7 +151,7 @@ async function fulfill(orderId:string):Promise<'done'|'defer'>{
   const prepared=await prepare(orderId);if(!prepared)return 'done';
   if('reject'in prepared){await completeOrder(orderId,{status:'failed',reason:prepared.reject},`pre-dispatch:${orderId}`);return 'done';}
   const {attempt,fenced}=prepared;const request=storedRequest(attempt);const supplier=attempt.provider as Supplier;
-  if(attempt.environment!=='test'||attempt.providerMode!=='fixture'||attempt.providerAccount!=='fixture')throw new ProviderError('attempt-mode-mismatch');
+  if(attempt.environment!==runtimeEnvironment()||attempt.providerMode!=='fixture'||attempt.providerAccount!=='fixture')throw new ProviderError('attempt-mode-mismatch');
   if(!fenced&&supplier==='GRAML'){
     await conclude(orderId,attempt,{kind:'unknown',externalOrderId:request.externalOrderId,productId:request.productId,quantity:1,chargedMinor:'0',currency:request.currency,products:[],reason:'graml-fenced-outcome-unknown'});return 'done';
   }
@@ -168,8 +170,8 @@ async function fulfill(orderId:string):Promise<'done'|'defer'>{
 }
 async function reconcile(orderId:string):Promise<'done'|'defer'>{
   const order=await prisma.order.findUnique({where:{id:orderId}});if(!order||final(order.fulfillment))return 'done';
-  if(order.environment!=='test'||order.provider!=='PAI'||order.providerMode!=='fixture'||order.providerAccount!=='fixture')throw new ProviderError('reconcile-mode-disabled');
-  const attempt=await prisma.providerAttempt.findUniqueOrThrow({where:{orderId_provider_providerAccount_environment:{orderId,provider:'PAI',providerAccount:'fixture',environment:'test'}}});
+  if(order.environment!==runtimeEnvironment()||order.provider!=='PAI'||order.providerMode!=='fixture'||order.providerAccount!=='fixture')throw new ProviderError('reconcile-mode-disabled');
+  const attempt=await prisma.providerAttempt.findUniqueOrThrow({where:{orderId_provider_providerAccount_environment:{orderId,provider:'PAI',providerAccount:'fixture',environment:runtimeEnvironment()}}});
   const request=storedRequest(attempt);
   // Dispatch pause applies only to new requests; lookups use the already persisted fixture mode.
   const adapter=new FixtureSupplier('PAI',{...config('PAI'),mode:'fixture'},store);
@@ -190,7 +192,7 @@ async function outboxFailure(id:string,error:unknown){
 }
 export async function processOutbox(id:string):Promise<void>{
   settings();const now=new Date();
-  const claimed=await prisma.outbox.updateMany({where:{id,environment:'test',attempts:{lt:MAX_ATTEMPTS},OR:[{status:'PENDING',OR:[{leaseUntil:null},{leaseUntil:{lte:now}}]},{status:'PROCESSING',leaseUntil:{lte:now}}]},data:{status:'PROCESSING',leaseUntil:new Date(Date.now()+LEASE_MS),attempts:{increment:1}}});
+  const claimed=await prisma.outbox.updateMany({where:{id,environment:runtimeEnvironment(),attempts:{lt:MAX_ATTEMPTS},OR:[{status:'PENDING',OR:[{leaseUntil:null},{leaseUntil:{lte:now}}]},{status:'PROCESSING',leaseUntil:{lte:now}}]},data:{status:'PROCESSING',leaseUntil:new Date(Date.now()+LEASE_MS),attempts:{increment:1}}});
   if(!claimed.count)return;
   try{
     const row=await prisma.outbox.findUniqueOrThrow({where:{id}});
@@ -205,21 +207,21 @@ export async function processOutbox(id:string):Promise<void>{
 export async function processInbox(id:string):Promise<void>{
   settings();
   // Inbox has no lease column: while PROCESSING, processedAt records claim time, replaced at final commit.
-  const claimed=await prisma.inbox.updateMany({where:{id,environment:'test',status:'PENDING',attempts:{lt:MAX_ATTEMPTS}},data:{status:'PROCESSING',processedAt:new Date(),attempts:{increment:1}}});
+  const claimed=await prisma.inbox.updateMany({where:{id,environment:runtimeEnvironment(),status:'PENDING',attempts:{lt:MAX_ATTEMPTS}},data:{status:'PROCESSING',processedAt:new Date(),attempts:{increment:1}}});
   if(!claimed.count)return;
   try{
     const row=await prisma.inbox.findUniqueOrThrow({where:{id}});
-    if(((row.provider==='fixture'&&row.providerAccount==='fixture')||(row.provider==='paystack'&&row.providerAccount==='sandbox'))&&['payment.succeeded','payment.reversed','payment.failed'].includes(row.eventType)){
+    if(((row.provider==='fixture'&&row.providerAccount==='fixture')||(row.provider==='paystack'&&['sandbox','live'].includes(row.providerAccount)))&&['payment.succeeded','payment.reversed','payment.failed'].includes(row.eventType)){
       const event=row.payload as unknown as FundingEvent;
-      if(event.eventId!==row.eventId||event.type!==row.eventType||event.environment!=='test'||!['NGN','USD'].includes(event.currency)||typeof event.amountMinor!=='string'||typeof event.reference!=='string')throw new ProviderError('invalid-funding-inbox');
-      await applyFundingEvent({...event,provider:row.provider as 'fixture'|'paystack',providerAccount:row.providerAccount as 'fixture'|'sandbox',inboxId:id});return;
+      if(event.eventId!==row.eventId||event.type!==row.eventType||event.environment!==runtimeEnvironment()||!['NGN','USD'].includes(event.currency)||typeof event.amountMinor!=='string'||typeof event.reference!=='string')throw new ProviderError('invalid-funding-inbox');
+      await applyFundingEvent({...event,provider:row.provider as 'fixture'|'paystack',providerAccount:row.providerAccount as 'fixture'|'sandbox'|'live',inboxId:id});return;
     }
     if(row.provider==='PAI'&&['order.delivered','order.queued','order.failed'].includes(row.eventType)){
       const metadata=row.payload as {orderId?:string};if(!metadata.orderId||!row.encryptedPayload)throw new ProviderError('invalid-supplier-inbox');
-      const protectedValue=open<{outcome:SupplierOutcome}>(row.encryptedPayload as unknown as SealedPayload,{orderId:metadata.orderId,provider:'PAI',environment:'test'});
+      const protectedValue=open<{outcome:SupplierOutcome}>(row.encryptedPayload as unknown as SealedPayload,{orderId:metadata.orderId,provider:'PAI',environment:runtimeEnvironment()});
       const order=await prisma.order.findUniqueOrThrow({where:{id:metadata.orderId}});
-      if(order.provider!=='PAI'||order.environment!=='test'||order.providerAccount!==row.providerAccount)throw new ProviderError('callback-order-association-mismatch');
-      const attempt=await prisma.providerAttempt.findUniqueOrThrow({where:{orderId_provider_providerAccount_environment:{orderId:order.id,provider:'PAI',providerAccount:row.providerAccount,environment:'test'}}});
+      if(order.provider!=='PAI'||order.environment!==runtimeEnvironment()||order.providerAccount!==row.providerAccount)throw new ProviderError('callback-order-association-mismatch');
+      const attempt=await prisma.providerAttempt.findUniqueOrThrow({where:{orderId_provider_providerAccount_environment:{orderId:order.id,provider:'PAI',providerAccount:row.providerAccount,environment:runtimeEnvironment()}}});
       if(`order.${protectedValue.outcome.kind}`!==row.eventType)throw new ProviderError('callback-outcome-event-mismatch');
       const state=await conclude(order.id,attempt,protectedValue.outcome,id);if(state==='queued')await scheduleReconcile(order.id);return;
     }
@@ -233,15 +235,15 @@ export async function processInbox(id:string):Promise<void>{
 export interface DurableQueue {add(name:string,data:{kind:'inbox'|'outbox';id:string},options:{jobId:string;removeOnComplete:boolean;removeOnFail:number}):Promise<unknown>}
 export async function tick(queue?:DurableQueue):Promise<void>{
   settings();const now=new Date();
-  await prisma.inbox.updateMany({where:{environment:'test',status:'PROCESSING',attempts:{lt:MAX_ATTEMPTS},processedAt:{lt:new Date(Date.now()-LEASE_MS)}},data:{status:'PENDING',processedAt:null,lastError:'expired-inbox-lease'}});
-  await prisma.inbox.updateMany({where:{environment:'test',status:'PROCESSING',attempts:{gte:MAX_ATTEMPTS},processedAt:{lt:new Date(Date.now()-LEASE_MS)}},data:{status:'FAILED',processedAt:new Date(),lastError:'exhausted-inbox-lease'}});
-  const exhausted=await prisma.outbox.findMany({where:{environment:'test',status:'PROCESSING',attempts:{gte:MAX_ATTEMPTS},leaseUntil:{lte:now}},select:{id:true},take:50});
+  await prisma.inbox.updateMany({where:{environment:runtimeEnvironment(),status:'PROCESSING',attempts:{lt:MAX_ATTEMPTS},processedAt:{lt:new Date(Date.now()-LEASE_MS)}},data:{status:'PENDING',processedAt:null,lastError:'expired-inbox-lease'}});
+  await prisma.inbox.updateMany({where:{environment:runtimeEnvironment(),status:'PROCESSING',attempts:{gte:MAX_ATTEMPTS},processedAt:{lt:new Date(Date.now()-LEASE_MS)}},data:{status:'FAILED',processedAt:new Date(),lastError:'exhausted-inbox-lease'}});
+  const exhausted=await prisma.outbox.findMany({where:{environment:runtimeEnvironment(),status:'PROCESSING',attempts:{gte:MAX_ATTEMPTS},leaseUntil:{lte:now}},select:{id:true},take:50});
   for(const row of exhausted)await outboxFailure(row.id,new ProviderError('exhausted-outbox-lease'));
   // Discover recovery work even if the worker crashed between outcome persistence and scheduling.
-  const pending=await prisma.providerAttempt.findMany({where:{environment:'test',provider:'PAI',providerMode:'fixture',dispatchCount:{gt:0},order:{fulfillment:{notIn:['DELIVERED','FAILED']}}},select:{orderId:true},take:100});
+  const pending=await prisma.providerAttempt.findMany({where:{environment:runtimeEnvironment(),provider:'PAI',providerMode:'fixture',dispatchCount:{gt:0},order:{fulfillment:{notIn:['DELIVERED','FAILED']}}},select:{orderId:true},take:100});
   for(const attempt of pending)await scheduleReconcile(attempt.orderId);
   const [inbox,outbox]=await Promise.all([
-    prisma.inbox.findMany({where:{environment:'test',status:'PENDING',attempts:{lt:MAX_ATTEMPTS}},select:{id:true},orderBy:{createdAt:'asc'},take:50}),
+    prisma.inbox.findMany({where:{environment:runtimeEnvironment(),status:'PENDING',attempts:{lt:MAX_ATTEMPTS}},select:{id:true},orderBy:{createdAt:'asc'},take:50}),
     prisma.outbox.findMany({where:{environment:'test',attempts:{lt:MAX_ATTEMPTS},OR:[{status:'PENDING',OR:[{leaseUntil:null},{leaseUntil:{lte:now}}]},{status:'PROCESSING',leaseUntil:{lte:now}}]},select:{id:true},orderBy:{createdAt:'asc'},take:50}),
   ]);
   for(const item of inbox)if(queue)await queue.add('durable-inbox',{kind:'inbox',id:item.id},{jobId:`in-${item.id}`,removeOnComplete:true,removeOnFail:100});else await processInbox(item.id);
