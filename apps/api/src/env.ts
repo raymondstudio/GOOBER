@@ -23,7 +23,7 @@ export function loadEnvironment(): EnvironmentConfig {
     if (!process.env[key]) throw new Error(`Missing required ${key}`);
   }
   if (environment === 'test' && !process.env.FIXTURE_WEBHOOK_SECRET) throw new Error('Missing required FIXTURE_WEBHOOK_SECRET');
-  if (environment === 'live' && !process.env.PAYSTACK_SECRET_KEY) throw new Error('Missing required PAYSTACK_SECRET_KEY');
+  if (environment === 'live' && (!process.env.PAYSTACK_SECRET_KEY || !process.env.PAYSTACK_WEBHOOK_SECRET)) throw new Error('Missing required Paystack live credentials');
   if (Buffer.from(process.env.DELIVERY_KEY!, 'base64').length !== 32) throw new Error('DELIVERY_KEY must encode 32 bytes');
   return { appEnv, environment, paymentMode, paiMode, gramlMode, origin, redisUrl: process.env.REDIS_URL! } as EnvironmentConfig;
 }
